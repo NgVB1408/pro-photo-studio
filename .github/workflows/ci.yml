@@ -117,7 +117,12 @@ jobs:
           uv venv
           uv pip install -e packages/core
           uv pip install -e packages/api
-          uv pip install pytest pytest-asyncio httpx argon2-cffi ruff
+          # Test-only deps not yet declared in pyproject (added per-test-suite as needed):
+          uv pip install \
+              pytest pytest-asyncio httpx ruff \
+              argon2-cffi \
+              'sqlalchemy[asyncio]>=2.0' aiosqlite asyncpg \
+              aiobotocore
 
       - name: Lint (ruff)
         run: uv run ruff check packages/api
