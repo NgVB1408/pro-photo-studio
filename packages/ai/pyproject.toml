@@ -25,10 +25,10 @@ sam2 = ["segment-anything-2>=1.0"]
 # Note: lama-cleaner / iopaint pin huggingface-hub==0.25.2 which conflicts
 # with the >=0.26 required by transformers/diffusers. We integrate LaMa via
 # direct ONNX runtime instead — see packages/ai/pps_ai/lama/ (Phase 3).
-upscale-ncnn = ["realesrgan-ncnn-vulkan-python>=2.0"]
+# Real-ESRGAN ncnn-vulkan is shipped as a precompiled binary, not via pip;
+# wrapper invokes it via subprocess in pps_ai/upscale/ncnn.py (Phase 3).
 all = [
     "segment-anything-2>=1.0",
-    "realesrgan-ncnn-vulkan-python>=2.0",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -52,12 +52,16 @@ pnpm-debug.log*
 *.pem
 
 # Secrets — explicit safety net (Git LFS does not protect against committing!)
-*token*
-*secret*
-*credentials*
+# Match obvious credential file names; excluded patterns below let scripts/
+# and SECURITY.md document the topic without being blocked.
+*.token
+*.secret
+*.credentials
+secrets.json
+credentials.json
 *.key
-!*token*.example
-!*secret*.example
+!*.example.token
+!*.example.secret
 
 # Large files / artifacts
 drive_assets/
