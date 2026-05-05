@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test-core:
+    name: Core (Python ${{ matrix.python }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            packages/core/pyproject.toml
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          uv sync --package=pps-core --extra=raw --extra=sky-ai --group=dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check packages/core
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check packages/core
+
+      - name: Type check (mypy strict on stable subset)
+        run: |
+          uv run mypy packages/core/pps_core/twilight.py \
+                      packages/core/pps_core/tone_coherency.py \
+                      packages/core/pps_core/perspective.py
+        continue-on-error: true  # mypy strict is aspirational on legacy modules
+
+      - name: Run tests
+        run: uv run pytest packages/core/tests --tb=short -ra
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  scripts-validation:
+    name: Validate utility scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Self-test secret scanner against fixtures
+        run: |
+          # Should pass: no secrets in repo (excluding self-test fixture)
+          python scripts/check_no_secrets.py $(git ls-files '*.py' '*.md' '*.yaml' '*.yml' '*.toml')
+          # Should fail: synthesized fake token in fixture (assembled at runtime
+          # so this YAML itself does not contain a token-shaped string)
+          PREFIX="hf_"
+          BODY=$(printf 'a%.0s' {1..36})
+          printf 'TOKEN = "%s%s"\n' "$PREFIX" "$BODY" > /tmp/leak.py
+          if python scripts/check_no_secrets.py /tmp/leak.py ; then
+            echo "FAIL: scanner missed obvious secret" && exit 1
+          fi
+          echo "Self-test passed"

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-core"
+version = "0.1.0"
+description = "Pro Photo Studio — deterministic OpenCV pipeline for real-estate photo enhancement"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+keywords = ["real-estate", "photo", "enhancement", "hdr", "computer-vision"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "Pillow>=10.0",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+raw = ["rawpy>=0.21"]
+sky-ai = ["onnxruntime>=1.17", "rembg>=2.0"]
+dropbox = ["dropbox>=12.0"]
+ui = ["gradio>=4.0"]
+
+[project.scripts]
+pps = "pps_core.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_core"]

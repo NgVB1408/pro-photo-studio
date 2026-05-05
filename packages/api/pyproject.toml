@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-api"
+version = "0.1.0"
+description = "Pro Photo Studio — FastAPI gateway + Celery worker + Postgres + S3"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+dependencies = [
+    "pps-core",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "celery[redis]>=5.4",
+    "redis>=5.2",
+    "boto3>=1.35",
+    "aiobotocore>=2.15",
+    "python-multipart>=0.0.20",
+    "httpx>=0.28",
+    "argon2-cffi>=23.1",
+    "structlog>=24.4",
+    "sentry-sdk[fastapi]>=2.18",
+]
+
+[project.optional-dependencies]
+ai = ["pps-ai"]
+stripe = ["stripe>=11.3"]
+clerk = ["clerk-backend-api>=1.0"]
+
+[project.scripts]
+pps-api = "pps_api.main:run"
+pps-worker = "pps_api.tasks:run_worker"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_api"]

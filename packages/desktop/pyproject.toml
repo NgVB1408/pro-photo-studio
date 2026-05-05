@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-desktop"
+version = "0.1.0"
+description = "Pro Photo Studio — PySide6 desktop client"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+dependencies = [
+    "pps-core",
+    "PySide6>=6.8",
+    "httpx>=0.28",
+]
+
+[project.optional-dependencies]
+ai = ["pps-ai"]
+dev = ["pyinstaller>=6.11"]
+
+[project.scripts]
+pps-desktop = "pps_desktop.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_desktop"]
+
+[tool.hatch.build]
+include = [
+    "pps_desktop/**/*.py",
+    "pps_desktop/**/*.qss",
+    "pps_desktop/assets/**",
+]
