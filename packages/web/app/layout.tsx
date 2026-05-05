@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   applicationName: publicEnv.brandName,
   authors: [{ name: "Pro Photo Studio" }],
   robots: { index: true, follow: true },
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export const viewport: Viewport = {

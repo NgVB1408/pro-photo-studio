@@ -132,6 +132,7 @@ def _serialise_report(report: Report) -> dict[str, object]:
                 "warnings": [list(w) for w in s.warnings],
                 "metrics": dict(s.metrics),
                 "reason": s.reason,
+                "artifacts": dict(s.artifacts),
             }
             for s in report.stages
         ],
@@ -146,6 +147,11 @@ def _deserialise_report(data: dict[str, object]) -> Report:
             continue
         warnings_raw = s.get("warnings", []) or []
         warnings = tuple(tuple(w) for w in warnings_raw if isinstance(w, list) and len(w) == 2)
+        artifacts_raw = s.get("artifacts", {}) or {}
+        artifacts = {
+            str(k): str(v)
+            for k, v in (artifacts_raw.items() if isinstance(artifacts_raw, dict) else [])
+        }
         stages.append(
             StageReport(
                 name=str(s.get("name", "")),
@@ -156,6 +162,7 @@ def _deserialise_report(data: dict[str, object]) -> Report:
                 warnings=warnings,
                 metrics=dict(s.get("metrics", {}) or {}),
                 reason=str(s.get("reason", "")),
+                artifacts=artifacts,
             )
         )
     return Report(

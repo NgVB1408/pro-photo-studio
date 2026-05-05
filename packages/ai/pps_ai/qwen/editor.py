@@ -70,7 +70,7 @@ class QwenEditor:
             return "local"
         # auto
         try:
-            import torch  # noqa: PLC0415
+            import torch
 
             if torch.cuda.is_available():
                 self._mode_resolved = "local"
@@ -89,8 +89,8 @@ class QwenEditor:
         if self._pipe is not None:
             return
         try:
-            import torch  # noqa: PLC0415
-            from diffusers import DiffusionPipeline  # noqa: PLC0415
+            import torch
+            from diffusers import DiffusionPipeline
         except ImportError as exc:
             raise RuntimeError(
                 "QwenEditor local mode requires torch + diffusers. "
@@ -141,7 +141,7 @@ class QwenEditor:
 
     def _edit_remote(self, image: np.ndarray, instruction: str) -> np.ndarray:
         try:
-            from huggingface_hub import InferenceClient  # noqa: PLC0415
+            from huggingface_hub import InferenceClient
         except ImportError as exc:
             raise RuntimeError(
                 "QwenEditor remote mode requires huggingface_hub. "

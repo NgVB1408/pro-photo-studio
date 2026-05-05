@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, UploadCloud, X } from "lucide-react";
+import { Loader2, Sparkles, UploadCloud, Wrench, X } from "lucide-react";
 import { AVAILABLE_STAGES } from "@/lib/types";
 import type { JobCreate, JobOut, StageInfo } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 type Status = "idle" | "uploading" | "error";
+type Mode = "autopilot" | "manual";
 
 const ACCEPT = ["image/jpeg", "image/png", "image/webp"] as const;
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -19,6 +20,7 @@ export function UploadDropzone() {
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>("autopilot");
   const [stages, setStages] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(AVAILABLE_STAGES.map((s) => [s.id, s.default])),
   );
@@ -66,25 +68,33 @@ export function UploadDropzone() {
 
   const submit = useCallback(async () => {
     if (!file) return;
-    const enabled = AVAILABLE_STAGES.filter((s) => stages[s.id]).map((s) => s.id);
-    if (enabled.length === 0) {
-      setError("Pick at least one stage.");
-      return;
-    }
     setStatus("uploading");
     setError(null);
 
+    let endpoint = "/api/auto";
     const fd = new FormData();
     fd.append("image", file, file.name);
-    const body: JobCreate = {
-      stages: enabled,
-      seed,
-      metadata: { source: "web-portal", filename: file.name },
-    };
-    fd.append("body", JSON.stringify(body));
+
+    if (mode === "manual") {
+      const enabled = AVAILABLE_STAGES.filter((s) => stages[s.id]).map((s) => s.id);
+      if (enabled.length === 0) {
+        setError("Pick at least one stage.");
+        setStatus("error");
+        return;
+      }
+      const body: JobCreate = {
+        stages: enabled,
+        seed,
+        metadata: { source: "web-portal", filename: file.name, mode: "manual" },
+      };
+      fd.append("body", JSON.stringify(body));
+      endpoint = "/api/jobs";
+    } else {
+      fd.append("seed", String(seed));
+    }
 
     try {
-      const resp = await fetch("/api/jobs", { method: "POST", body: fd });
+      const resp = await fetch(endpoint, { method: "POST", body: fd });
       if (!resp.ok) {
         const detail = await resp
           .json()
@@ -102,7 +112,7 @@ export function UploadDropzone() {
       setStatus("error");
       setError(e instanceof Error ? e.message : "Upload failed");
     }
-  }, [file, router, seed, stages]);
+  }, [file, mode, router, seed, stages]);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
@@ -174,38 +184,84 @@ export function UploadDropzone() {
 
       <aside className="space-y-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
         <div>
-          <h2 className="text-base font-semibold">Pipeline stages</h2>
+          <h2 className="text-base font-semibold">Mode</h2>
           <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-            Toggle off the steps you don't want. Order is fixed — the runner is
-            deterministic per seed.
+            Auto-pilot is the recommended default. Switch to Manual only when you
+            need to control individual stages.
           </p>
         </div>
-        <ul className="space-y-3">
-          {AVAILABLE_STAGES.map((s: StageInfo) => (
-            <li key={s.id}>
-              <label
-                htmlFor={`${stagesId}-${s.id}`}
-                className="flex cursor-pointer items-start gap-3 rounded-md border border-transparent p-2 transition hover:border-[var(--color-border)] hover:bg-[var(--color-surface-elevated)]"
-              >
-                <input
-                  id={`${stagesId}-${s.id}`}
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 accent-[var(--color-accent)]"
-                  checked={stages[s.id] ?? false}
-                  onChange={(e) =>
-                    setStages((cur) => ({ ...cur, [s.id]: e.target.checked }))
-                  }
-                />
-                <div>
-                  <div className="text-sm font-medium">{s.label}</div>
-                  <div className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
-                    {s.description}
-                  </div>
-                </div>
-              </label>
-            </li>
-          ))}
-        </ul>
+
+        <div className="grid grid-cols-2 gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-canvas)] p-1">
+          <ModeButton
+            active={mode === "autopilot"}
+            onClick={() => setMode("autopilot")}
+            icon={Sparkles}
+            label="Auto-pilot"
+          />
+          <ModeButton
+            active={mode === "manual"}
+            onClick={() => setMode("manual")}
+            icon={Wrench}
+            label="Manual"
+          />
+        </div>
+
+        {mode === "autopilot" ? (
+          <div className="rounded-md border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 p-4 text-xs text-[var(--color-fg-muted)]">
+            <div className="mb-2 font-medium text-[var(--color-fg)]">
+              The studio runs every specialist
+            </div>
+            <ul className="grid grid-cols-1 gap-1.5">
+              {[
+                "Auto-detects scene (interior / exterior / aerial)",
+                "Picks the right baseline pipeline per scene",
+                "Routes through 9 specialists with checklists",
+                "Rolls back any change that lowers a category score",
+                "Returns a 0–10 scorecard you can audit",
+              ].map((it) => (
+                <li key={it} className="flex items-center gap-1.5">
+                  <span className="h-1 w-1 rounded-full bg-[var(--color-accent)]" />
+                  <span>{it}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <>
+            <div>
+              <h3 className="text-sm font-semibold">Pipeline stages</h3>
+              <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                Toggle off steps you don't want. Order is fixed.
+              </p>
+            </div>
+            <ul className="space-y-3">
+              {AVAILABLE_STAGES.map((s: StageInfo) => (
+                <li key={s.id}>
+                  <label
+                    htmlFor={`${stagesId}-${s.id}`}
+                    className="flex cursor-pointer items-start gap-3 rounded-md border border-transparent p-2 transition hover:border-[var(--color-border)] hover:bg-[var(--color-surface-elevated)]"
+                  >
+                    <input
+                      id={`${stagesId}-${s.id}`}
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 accent-[var(--color-accent)]"
+                      checked={stages[s.id] ?? false}
+                      onChange={(e) =>
+                        setStages((cur) => ({ ...cur, [s.id]: e.target.checked }))
+                      }
+                    />
+                    <div>
+                      <div className="text-sm font-medium">{s.label}</div>
+                      <div className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
+                        {s.description}
+                      </div>
+                    </div>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
         <div>
           <label htmlFor="seed" className="text-sm font-medium">
@@ -219,7 +275,7 @@ export function UploadDropzone() {
             className="mt-1 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
           />
           <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-            Same seed + same input + same stages = byte-identical output.
+            Same seed + same input = byte-identical output.
           </p>
         </div>
 
@@ -239,11 +295,45 @@ export function UploadDropzone() {
               <Loader2 className="h-4 w-4 animate-spin" />
               Submitting…
             </>
+          ) : mode === "autopilot" ? (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Run auto-pilot
+            </>
           ) : (
             "Process photo"
           )}
         </button>
       </aside>
     </div>
+  );
+}
+
+function ModeButton({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: typeof Sparkles;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition",
+        active
+          ? "bg-[var(--color-accent)] text-black"
+          : "text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-fg)]",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </button>
   );
 }

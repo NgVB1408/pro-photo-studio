@@ -73,6 +73,24 @@ export async function createJob(image: Blob, body: JobCreate): Promise<JobOut> {
   });
 }
 
+export async function autoEnhance(
+  image: Blob,
+  opts: { seed?: number; scene?: string; twilight?: boolean } = {},
+): Promise<JobOut> {
+  const fd = new FormData();
+  fd.append("image", image, "upload.jpg");
+  const qs = new URLSearchParams();
+  if (opts.seed !== undefined) qs.set("seed", String(opts.seed));
+  if (opts.scene) qs.set("scene", opts.scene);
+  if (opts.twilight) qs.set("twilight", "true");
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return request<JobOut>(`/v1/auto${suffix}`, {
+    method: "POST",
+    body: fd,
+    timeoutMs: 60_000,
+  });
+}
+
 export async function streamJobResult(jobId: string): Promise<{
   bytes: ArrayBuffer;
   contentType: string;

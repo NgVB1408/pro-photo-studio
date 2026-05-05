@@ -1,9 +1,10 @@
-# Local development stack — bring up Postgres + Redis + MinIO + API.
+# Local development stack — bring up Postgres + Redis + MinIO + API + Web.
 #
 # Usage:
 #   docker compose -f deploy/docker-compose.dev.yml up
 #
 # Endpoints when running:
+#   Web portal: http://localhost:3001
 #   API:        http://localhost:8000  (Swagger at /docs)
 #   MinIO:      http://localhost:9001  (admin / minioadmin / minioadmin)
 #   Postgres:   localhost:5432         (user pps / pass pps / db pps)
@@ -111,6 +112,37 @@ services:
       interval: 10s
       timeout: 5s
       start_period: 15s
+      retries: 5
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.web
+    container_name: pps-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # The web container talks to the API by service name on the compose network.
+      PPS_API_URL: http://api:8000
+      # Dev-only key. Replace via `scripts/bootstrap_dev.py` (mints a real key
+      # and updates this value in .env). Until then, set PPS_REQUIRE_API_KEY=false
+      # in the api service so this placeholder is never validated.
+      PPS_API_KEY: ${PPS_API_KEY:-pps_dev_unset_run_bootstrap_dev_to_set}
+      NEXT_PUBLIC_BRAND_NAME: ${NEXT_PUBLIC_BRAND_NAME:-Pro Photo Studio}
+      NEXT_PUBLIC_BRAND_TAGLINE: ${NEXT_PUBLIC_BRAND_TAGLINE:-Real-estate photo enhancement, automated.}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3001
+      NODE_ENV: production
+      PORT: "3001"
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3001/", "-o", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
       retries: 5
 
 volumes:

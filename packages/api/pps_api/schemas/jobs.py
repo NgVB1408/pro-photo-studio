@@ -63,6 +63,10 @@ class StageReportOut(BaseModel):
     warnings: list[tuple[str, str]] = Field(default_factory=list)
     metrics: dict[str, float] = Field(default_factory=dict)
     reason: str = ""
+    artifacts: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional structured outputs (JSON-encoded). Stage-specific keys.",
+    )
 
 
 class ReportOut(BaseModel):

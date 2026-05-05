@@ -1,0 +1,11 @@
+# Colab-trained weights live here. Each model gets its own directory:
+#
+#   real_estate_lora/
+#     manifest.json
+#     real_estate_lora.safetensors
+#
+#   qwen_image_lightning/
+#     manifest.json
+#     qwen_lightning.safetensors
+#
+# Weights are tracked via Git LFS — see .gitattributes at the repo root.

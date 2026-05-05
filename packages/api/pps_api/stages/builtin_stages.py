@@ -170,6 +170,58 @@ class _EnhanceStudio:
         )
 
 
+class _AutoStudio:
+    """Multi-agent post-production studio.
+
+    Runs the full agent roster (Vertical → Exposure → White Balance → Noise →
+    Sky → Sharpness → Halo → Colour → Composition) and emits a per-agent
+    scorecard via the stage report's ``metrics``. The serialised ``StudioReport``
+    is exposed on the metric ``studio_report`` so the web UI can render the
+    full checklist.
+
+    Params:
+        scene  — override classifier ("interior" / "exterior" / "aerial").
+                 Default: auto-classify via pps_core.realestate.classify_scene.
+    """
+
+    name = "auto_studio"
+
+    def __call__(self, image: np.ndarray, ctx: StageContext) -> tuple[np.ndarray, StageReport]:
+        import json
+
+        from pps_core.agents import StudioOrchestrator
+        from pps_core.realestate import classify_scene
+
+        params = ctx.params
+        scene_override = params.get("scene")
+        scene = scene_override if isinstance(scene_override, str) else classify_scene(image).tag
+
+        orchestrator = StudioOrchestrator()
+        rendered, studio_report = orchestrator.run(image, scene=scene)
+
+        warnings = tuple(
+            ("warn", f"{agent.name}: {agent.after.summary}")
+            for agent in studio_report.agents
+            if agent.after.score < 7.5 and agent.after.metrics.get("applicable", 1.0) > 0
+        )
+
+        return rendered, StageReport(
+            name=ctx.stage_name,
+            applied=True,
+            warnings=warnings,
+            metrics={
+                "overall_before": float(studio_report.overall_before),
+                "overall_after": float(studio_report.overall_after),
+                "agents_intervened": float(
+                    sum(1 for a in studio_report.agents if a.apply_report.applied)
+                ),
+                "agents_total": float(len(studio_report.agents)),
+            },
+            reason=f"{studio_report.grade}-grade · {studio_report.summary}",
+            artifacts={"studio_report": json.dumps(studio_report.as_dict())},
+        )
+
+
 def _scene_to_metric(tag: str) -> float:
     """Map scene tag → numeric so it can ride in the metrics dict."""
     return {"interior": 1.0, "exterior": 2.0, "aerial": 3.0}.get(tag, 0.0)
@@ -178,9 +230,60 @@ def _scene_to_metric(tag: str) -> float:
 # Register stage instances. Doing this at module-import time means simply
 # importing ``pps_api.stages.builtin_stages`` populates the global registry
 # the pipeline runner reads from.
+class _AutoPilot:
+    """End-to-end one-shot stage: classify + baseline + studio review.
+
+    Runs the full ``pps_core.autopilot.AutoPilot`` and returns its
+    ``AutopilotReport`` as a JSON artefact. Equivalent to picking
+    ``preflight + perspective + real_estate + enhance_studio + auto_studio``
+    but with scene-aware parameter selection baked in.
+    """
+
+    name = "auto_pilot"
+
+    def __call__(self, image: np.ndarray, ctx: StageContext) -> tuple[np.ndarray, StageReport]:
+        import json
+
+        from pps_core.autopilot import AutoPilot
+
+        params = ctx.params
+        scene = params.get("scene") if isinstance(params.get("scene"), str) else None
+        pilot = AutoPilot(
+            twilight=bool(params.get("twilight", False)),
+        )
+        rendered, report = pilot.run(image, scene=scene)
+        warnings = tuple(
+            ("warn", f"{a.name}: {a.after.summary}")
+            for a in report.studio.agents
+            if a.after.score < 7.5 and a.after.metrics.get("applicable", 1.0) > 0
+        )
+        return rendered, StageReport(
+            name=ctx.stage_name,
+            applied=True,
+            warnings=warnings,
+            metrics={
+                "scene": _scene_to_metric(report.scene),
+                "overall_before": float(report.studio.overall_before),
+                "overall_after": float(report.studio.overall_after),
+                "baseline_ms": float(report.baseline_duration_ms),
+                "total_ms": float(report.total_duration_ms),
+                "agents_intervened": float(
+                    sum(1 for a in report.studio.agents if a.apply_report.applied)
+                ),
+            },
+            reason=f"{report.grade}-grade · {report.studio.summary}",
+            artifacts={
+                "studio_report": json.dumps(report.studio.as_dict()),
+                "autopilot_report": json.dumps(report.as_dict()),
+            },
+        )
+
+
 register("preflight")(_Preflight())
 register("real_estate")(_RealEstate())
 register("twilight")(_Twilight())
 register("perspective")(_Perspective())
 register("identity")(_Identity())
 register("enhance_studio")(_EnhanceStudio())
+register("auto_studio")(_AutoStudio())
+register("auto_pilot")(_AutoPilot())

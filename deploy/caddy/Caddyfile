@@ -1,0 +1,51 @@
+# Caddyfile — terminates TLS on the production host and reverse-proxies to
+# the web + api services. Caddy auto-provisions Let's Encrypt certificates
+# for each labelled host. No cert renewal cron required.
+
+{
+    # Global options
+    email admin@propho.studio
+    servers {
+        protocols h1 h2 h3
+    }
+    # Production should never serve a default site.
+    auto_https on
+}
+
+# -- Customer portal (Next.js) -------------------------------------------------
+{$PPS_DOMAIN} {
+    encode zstd gzip
+    log {
+        output stdout
+        format json
+    }
+
+    # Block obvious noise.
+    @noisy {
+        path /.env /.git/* /wp-admin/* /wp-login.php
+    }
+    respond @noisy 404
+
+    # Hand everything to the Next server. It owns its own HSTS header via middleware.
+    reverse_proxy web:3001 {
+        health_uri /
+        health_interval 30s
+        health_timeout 5s
+    }
+}
+
+# -- Public API ----------------------------------------------------------------
+{$API_DOMAIN} {
+    encode zstd gzip
+    log {
+        output stdout
+        format json
+    }
+
+    # CORS handled by FastAPI (PPS_ALLOWED_ORIGINS). Caddy just proxies.
+    reverse_proxy api:8000 {
+        health_uri /health
+        health_interval 30s
+        health_timeout 5s
+    }
+}

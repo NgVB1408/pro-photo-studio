@@ -13,6 +13,56 @@ export type StageReport = {
   warnings: Array<[string, string]>;
   metrics: Record<string, number>;
   reason: string;
+  artifacts?: Record<string, string>;
+};
+
+export type ChecklistStatus = "pass" | "warn" | "fail";
+
+export type AgentChecklistItem = {
+  label: string;
+  status: ChecklistStatus;
+  detail: string;
+};
+
+export type AgentEvaluation = {
+  score: number;
+  summary: string;
+  metrics: Record<string, number>;
+  checklist: AgentChecklistItem[];
+};
+
+export type AgentApplyReport = {
+  applied: boolean;
+  actions: string[];
+  params: Record<string, number>;
+  duration_ms: number;
+  notes: string;
+};
+
+export type AgentReport = {
+  name: string;
+  role: string;
+  before: AgentEvaluation;
+  after: AgentEvaluation;
+  apply: AgentApplyReport;
+};
+
+export type StudioReport = {
+  scene: string;
+  overall_before: number;
+  overall_after: number;
+  grade: "S" | "A" | "B" | "C" | "D";
+  summary: string;
+  duration_ms: number;
+  agents: AgentReport[];
+};
+
+export type AutopilotReport = {
+  scene: string;
+  baseline_stages: string[];
+  baseline_duration_ms: number;
+  total_duration_ms: number;
+  studio: StudioReport;
 };
 
 export type Report = {

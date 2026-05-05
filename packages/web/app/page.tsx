@@ -118,16 +118,16 @@ export default function HomePage() {
 
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <Link
-                href="/upload"
+                href="/demo"
                 className="flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-5 py-3 text-sm font-medium text-black transition hover:bg-[var(--color-accent-hover)]"
               >
-                Process a photo <ArrowRight className="h-4 w-4" />
+                See live demo <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/#features"
+                href="/upload"
                 className="flex items-center gap-2 rounded-md border border-[var(--color-border)] px-5 py-3 text-sm transition hover:bg-[var(--color-surface)]"
               >
-                See what's different
+                Upload your photo
               </Link>
             </div>
 

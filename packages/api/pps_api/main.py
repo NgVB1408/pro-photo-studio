@@ -77,10 +77,12 @@ def create_app() -> FastAPI:
     # Register built-in pipeline stages so the API has something to run on
     # day one. ML-backed stages register themselves only when pps_ai is
     # imported, which we leave to the deployment to opt into.
+    from pps_api.routers import auto as auto_router
     from pps_api.routers import jobs as jobs_router
     from pps_api.stages import builtin_stages  # noqa: F401  (registration via import)
 
     app.include_router(jobs_router.router)
+    app.include_router(auto_router.router)
 
     return app
 

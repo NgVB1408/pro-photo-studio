@@ -114,6 +114,11 @@ class StageReport:
         metrics: Numeric outputs (PSNR, mask coverage, etc.). Stage-specific
             keys.
         reason: Human-readable explanation for skip / soft-failure cases.
+        artifacts: Optional structured outputs encoded as strings — e.g. a
+            JSON-serialised StudioReport from the auto_studio stage. Kept as
+            a string mapping (not a free-form dict) so the field round-trips
+            cleanly through the database without schema migrations whenever a
+            stage adds a new artefact key.
     """
 
     name: str
@@ -124,6 +129,7 @@ class StageReport:
     warnings: tuple[tuple[Severity, str], ...] = ()
     metrics: Mapping[str, float] = field(default_factory=dict)
     reason: str = ""
+    artifacts: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

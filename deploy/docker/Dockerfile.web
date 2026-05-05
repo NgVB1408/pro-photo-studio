@@ -1,0 +1,77 @@
+###############################################################################
+# Pro Photo Studio — web portal production image (Next.js 15 standalone).
+#
+# Build context: repository root.
+#   docker build -f deploy/docker/Dockerfile.web -t pps-web:latest .
+#
+# Stages:
+#   1. deps       — installs pnpm + node_modules from the lockfile
+#   2. builder    — compiles Next.js to .next/standalone with OUTPUT=standalone
+#   3. runner     — minimal runtime image with non-root user + healthcheck
+#
+# Final image is ~150 MB (alpine + node + standalone bundle, no pnpm cache).
+###############################################################################
+
+# -----------------------------------------------------------------------------
+ARG NODE_VERSION=20.18.0
+
+FROM node:${NODE_VERSION}-alpine AS deps
+WORKDIR /app
+
+# Pin pnpm via corepack to the version declared in package.json so build is
+# reproducible across CI and developer machines.
+RUN corepack enable
+
+# Copy only the manifests + lockfile so this layer is cached unless deps change.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/web/package.json packages/web/package.json
+
+RUN pnpm install --frozen-lockfile --prod=false
+
+# -----------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS builder
+WORKDIR /app
+
+RUN corepack enable
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/web/node_modules ./packages/web/node_modules
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/web ./packages/web
+
+# Build-time env. The real PPS_API_KEY is bound at runtime via docker secrets
+# or platform-managed env. The placeholder satisfies env validation in lib/env.ts
+# during `next build` while never reaching the produced bundle.
+ENV PPS_API_URL=http://api:8000
+ENV PPS_API_KEY=pps_dev_build_only_xxxxxxxxxxxxxxxxxxxx
+ENV NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR /app/packages/web
+RUN pnpm build
+
+# -----------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
+
+RUN addgroup --system --gid 1001 pps && \
+    adduser --system --uid 1001 --ingroup pps pps && \
+    apk add --no-cache curl tini
+
+# Standalone output is fully self-contained (Next traces the deps it needs).
+COPY --from=builder --chown=pps:pps /app/packages/web/.next/standalone ./
+COPY --from=builder --chown=pps:pps /app/packages/web/.next/static ./packages/web/.next/static
+COPY --from=builder --chown=pps:pps /app/packages/web/public ./packages/web/public
+
+USER pps
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:3001/ -o /dev/null || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "packages/web/server.js"]

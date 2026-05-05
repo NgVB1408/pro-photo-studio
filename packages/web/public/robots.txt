@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /upload
+Allow: /jobs
+Disallow: /api/
+
+Sitemap: /sitemap.xml

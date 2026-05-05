@@ -3,6 +3,7 @@ import { Aperture } from "lucide-react";
 import { publicEnv } from "@/lib/env";
 
 const NAV = [
+  { href: "/demo", label: "Live demo" },
   { href: "/upload", label: "Upload" },
   { href: "/jobs", label: "Jobs" },
   { href: "/#features", label: "Features" },

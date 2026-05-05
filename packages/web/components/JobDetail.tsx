@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Download, Loader2, RefreshCw } from "lucide-react";
-import type { JobOut, StageReport } from "@/lib/types";
+import type { JobOut, StageReport, StudioReport } from "@/lib/types";
 import { JobStatusBadge } from "./JobStatusBadge";
 import { BeforeAfterSlider } from "./BeforeAfterSlider";
+import { StudioScorecard } from "./StudioScorecard";
 
 type Props = {
   initial: JobOut;
@@ -140,9 +141,29 @@ export function JobDetail({ initial, beforeImageUrl }: Props) {
         </section>
       ) : null}
 
-      {job.report && <ReportPanel report={job.report} />}
+      {job.report && (
+        <>
+          {extractStudioReport(job.report) && (
+            <StudioScorecard report={extractStudioReport(job.report)!} />
+          )}
+          <ReportPanel report={job.report} />
+        </>
+      )}
     </div>
   );
+}
+
+function extractStudioReport(report: NonNullable<JobOut["report"]>): StudioReport | null {
+  for (const stage of report.stages) {
+    const raw = stage.artifacts?.studio_report;
+    if (!raw) continue;
+    try {
+      return JSON.parse(raw) as StudioReport;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function ReportPanel({

@@ -90,6 +90,7 @@ def _to_job_out(record: JobRecord) -> JobOut:
                     warnings=[(sev, msg) for sev, msg in s.warnings],
                     metrics=dict(s.metrics),
                     reason=s.reason,
+                    artifacts=dict(s.artifacts),
                 )
                 for s in record.report.stages
             ],
