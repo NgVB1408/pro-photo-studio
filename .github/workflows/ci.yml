@@ -34,10 +34,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
-          enable-cache: true
-          cache-dependency-glob: |
-            packages/core/pyproject.toml
-            pyproject.toml
+          enable-cache: false  # uv.lock not generated yet (Phase 2.3)
 
       - name: Install pps-core + dev tools
         run: |
@@ -113,7 +110,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
-          enable-cache: true
+          enable-cache: false  # uv.lock not generated yet (Phase 2.3)
 
       - name: Install pps-core + pps-api + dev tools
         run: |
