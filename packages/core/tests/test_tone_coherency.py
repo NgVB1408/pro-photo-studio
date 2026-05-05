@@ -1,10 +1,9 @@
 """Tests for tone_coherency: TonePreset (static) + BatchToneFitter (dynamic)."""
+
 from __future__ import annotations
 
 import cv2
 import numpy as np
-import pytest
-
 from pps_core.tone_coherency import (
     BatchAnchor,
     BatchToneFitter,
@@ -24,7 +23,7 @@ def _scene(h=240, w=320, base=(120, 120, 120)) -> np.ndarray:
     grad = np.linspace(60, 180, w, dtype=np.uint8)
     img[:, :, :] = np.stack([grad, grad, grad], axis=-1)[None, :, :].repeat(h, axis=0)
     # Add color patches
-    img[20:80, 20:80] = (40, 30, 200)   # warm patch (red)
+    img[20:80, 20:80] = (40, 30, 200)  # warm patch (red)
     img[140:200, 140:200] = (200, 80, 40)  # cool patch (blue)
     return img
 
@@ -109,8 +108,7 @@ def test_anchor_apply_shifts_warm_image_toward_neutral():
     lab_after = cv2.cvtColor(out, cv2.COLOR_BGR2LAB)
     b_after = float(np.median(lab_after[..., 2]))
     assert b_after < b_before, (
-        f"b channel should decrease toward neutral, "
-        f"before={b_before:.1f} after={b_after:.1f}"
+        f"b channel should decrease toward neutral, before={b_before:.1f} after={b_after:.1f}"
     )
 
 

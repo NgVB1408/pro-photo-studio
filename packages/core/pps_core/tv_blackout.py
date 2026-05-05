@@ -11,11 +11,11 @@ Heuristic detect (không cần ML):
 
 Sau detect → fill black + thêm reflection nhẹ (gradient) cho realistic.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -39,8 +39,12 @@ class TVBlackoutReport:
 
 
 def _detect_quadrilaterals(
-    img: np.ndarray, *, min_aspect: float = 1.55, max_aspect: float = 2.10,
-    min_area_rel: float = 0.020, max_area_rel: float = 0.25,
+    img: np.ndarray,
+    *,
+    min_aspect: float = 1.55,
+    max_aspect: float = 2.10,
+    min_area_rel: float = 0.020,
+    max_area_rel: float = 0.25,
 ) -> list[TVDetection]:
     """Tighter TV-screen detector — avoid false-positive on framed pictures.
 
@@ -94,10 +98,7 @@ def _detect_quadrilaterals(
 
         is_screen = False
         # Path 1: TV off (uniform dark)
-        if roi_mean < 60 and roi_std < 25:
-            is_screen = True
-        # Path 2: TV on (high brightness, single-tone dominant)
-        elif roi_mean > 100 and bgr_std < 35:
+        if (roi_mean < 60 and roi_std < 25) or (roi_mean > 100 and bgr_std < 35):
             is_screen = True
 
         if not is_screen:
@@ -109,18 +110,23 @@ def _detect_quadrilaterals(
         conf = float(rectangularity * 0.5 + ar_score * 0.5)
         if conf < 0.65:  # tighter conf threshold
             continue
-        candidates.append(TVDetection(
-            polygon=poly.astype(np.int32),
-            area=int(area),
-            aspect_ratio=float(ar),
-            confidence=conf,
-        ))
+        candidates.append(
+            TVDetection(
+                polygon=poly.astype(np.int32),
+                area=int(area),
+                aspect_ratio=float(ar),
+                confidence=conf,
+            )
+        )
     candidates.sort(key=lambda d: -d.confidence)
     return candidates
 
 
 def _draw_tv_off(
-    img: np.ndarray, polygon: np.ndarray, *, with_reflection: bool = True,
+    img: np.ndarray,
+    polygon: np.ndarray,
+    *,
+    with_reflection: bool = True,
 ) -> None:
     """Vẽ TV off (đen + reflection nhẹ) in-place."""
     H, W = img.shape[:2]
@@ -165,7 +171,8 @@ def _draw_tv_off(
 
 
 def tv_blackout(
-    img: np.ndarray, *,
+    img: np.ndarray,
+    *,
     max_screens: int = 3,
     confidence_threshold: float = 0.55,
 ) -> tuple[np.ndarray, TVBlackoutReport]:
@@ -196,7 +203,8 @@ def tv_blackout(
 
 
 def tv_blackout_manual(
-    img: np.ndarray, polygon: np.ndarray,
+    img: np.ndarray,
+    polygon: np.ndarray,
 ) -> np.ndarray:
     """User-defined TV polygon — 4 điểm."""
     out = img.copy()

@@ -1,9 +1,9 @@
 """Tests cho deghost_mask + color_normalize_brackets (port từ imagen-ai)."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from pps_core.hdr import (
     color_normalize_brackets,
     compute_deghost_mask,
@@ -20,6 +20,7 @@ def _bracket(h=80, w=120, base=128, delta=40):
 
 
 # ---------- color_normalize_brackets ----------
+
 
 def test_color_normalize_keeps_reference_intact():
     stack = _bracket()
@@ -49,6 +50,7 @@ def test_color_normalize_single_image_passthrough():
 
 
 # ---------- compute_deghost_mask ----------
+
 
 def test_deghost_mask_zero_when_no_motion():
     stack = _bracket()
@@ -90,6 +92,7 @@ def test_deghost_mask_single_image_returns_zero():
 
 
 # ---------- fuse_brackets with new flags ----------
+
 
 def test_fuse_brackets_with_deghost_runs():
     stack = _bracket()

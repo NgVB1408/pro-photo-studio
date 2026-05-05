@@ -1,9 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pps_core.unsplash import UnsplashClient, UnsplashError, _to_photo
-
 
 SAMPLE_PHOTO = {
     "id": "abc123",

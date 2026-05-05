@@ -1,14 +1,12 @@
 import cv2
 import numpy as np
-
 from pps_core.batch import IMAGE_EXTS, find_images, run_batch
 from pps_core.utils import write_image
 
 
 def _make_test_image(path, h=80, w=120):
     img = np.full((h, w, 3), 100, dtype=np.uint8)
-    cv2.putText(img, "X", (w - 30, h - 10), cv2.FONT_HERSHEY_DUPLEX,
-                0.8, (255, 255, 255), 2)
+    cv2.putText(img, "X", (w - 30, h - 10), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 2)
     write_image(path, img)
 
 
@@ -44,7 +42,8 @@ def test_run_batch_processes_files(tmp_path):
 
     files = find_images(src_dir)
     result = run_batch(
-        files, out_dir,
+        files,
+        out_dir,
         workers=1,  # sequential để dễ debug + tránh spawn overhead
         skip_existing=False,
         progress=False,
@@ -70,7 +69,8 @@ def test_run_batch_skip_existing(tmp_path):
     (out_dir / "a_clean.png").write_bytes(b"already")
 
     result = run_batch(
-        find_images(src_dir), out_dir,
+        find_images(src_dir),
+        out_dir,
         workers=1,
         skip_existing=True,
         progress=False,

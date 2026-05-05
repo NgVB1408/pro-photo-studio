@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from pps_core.quality import (
     QualityReport,
     compare,
@@ -50,6 +49,7 @@ def test_compare_shape_mismatch_raises():
 
 def test_compare_files(tmp_path):
     from pps_core.utils import write_image
+
     a = _img(7)
     b = a.copy()
     b[10:20, 10:20] = 0
@@ -63,7 +63,7 @@ def test_compare_files(tmp_path):
 def test_watermark_residual_counts_bright_dark_in_mask():
     img = np.full((50, 50, 3), 128, dtype=np.uint8)
     img[10:20, 10:20] = 255  # bright
-    img[30:40, 30:40] = 0    # dark
+    img[30:40, 30:40] = 0  # dark
     mask = np.zeros((50, 50), dtype=np.uint8)
     mask[10:20, 10:20] = 255
     mask[30:40, 30:40] = 255

@@ -66,9 +66,7 @@ def load_settings(env_file: str | Path | None = ".env") -> Settings:
     method = _coerce_choice(
         os.getenv("OPENCV_METHOD", "telea"), _VALID_OPENCV_METHODS, "OPENCV_METHOD", "telea"
     )
-    device = _coerce_choice(
-        os.getenv("LAMA_DEVICE", "auto"), _VALID_DEVICES, "LAMA_DEVICE", "auto"
-    )
+    device = _coerce_choice(os.getenv("LAMA_DEVICE", "auto"), _VALID_DEVICES, "LAMA_DEVICE", "auto")
     radius = _coerce_int(os.getenv("OPENCV_RADIUS", "3"), "OPENCV_RADIUS", 3)
     output_dir = Path(os.getenv("OUTPUT_DIR", "output")).expanduser()
     log_level = (os.getenv("LOG_LEVEL", "INFO") or "INFO").upper()

@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import pytest
-
 from pps_core.video import _pick_fourcc, process_video
 
 
@@ -14,8 +13,9 @@ def _make_test_video(path, frames=10, w=160, h=120, fps=10):
         for i in range(frames):
             frame = np.zeros((h, w, 3), dtype=np.uint8)
             frame[:, :] = (50 + i * 5, 80, 120)
-            cv2.putText(frame, "WM", (w - 50, h - 20),
-                        cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 2)
+            cv2.putText(
+                frame, "WM", (w - 50, h - 20), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 2
+            )
             writer.write(frame)
     finally:
         writer.release()
@@ -38,7 +38,8 @@ def test_process_video_static_box(tmp_path):
     _make_test_video(src, frames=8, w=160, h=120)
 
     info = process_video(
-        src, dst,
+        src,
+        dst,
         mask_mode="static",
         boxes=[(110, 90, 50, 30)],
         backend="opencv",
@@ -58,7 +59,8 @@ def test_process_video_max_frames_limit(tmp_path):
     dst = tmp_path / "out.mp4"
     _make_test_video(src, frames=20)
     info = process_video(
-        src, dst,
+        src,
+        dst,
         mask_mode="static",
         boxes=[(100, 80, 50, 30)],
         backend="opencv",

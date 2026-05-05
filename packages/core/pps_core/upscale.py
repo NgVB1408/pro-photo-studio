@@ -15,6 +15,7 @@ Memory-aware tile processing:
 - Ảnh nhỏ (<1500px) chạy trực tiếp
 - Ảnh lớn split thành tile 512×512 với overlap 16px → ghép lại seamless
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,10 +55,7 @@ _LOAD_LOCK = threading.Lock()
 def get_models_dir() -> Path:
     """Thư mục lưu model (lazy download)."""
     env = os.environ.get("WATERMARK_TOOLKIT_MODELS_DIR")
-    if env:
-        d = Path(env).expanduser()
-    else:
-        d = Path.home() / ".pps_core" / "models"
+    d = Path(env).expanduser() if env else Path.home() / ".pps_core" / "models"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -86,8 +84,13 @@ def _download_model(name: str) -> Path:
                 downloaded += len(buf)
                 if total > 0:
                     pct = downloaded / total * 100
-                    logger.info("  ↓ %s %d%% (%.1f / %.1f MB)",
-                                name, int(pct), downloaded/1024/1024, total/1024/1024)
+                    logger.info(
+                        "  ↓ %s %d%% (%.1f / %.1f MB)",
+                        name,
+                        int(pct),
+                        downloaded / 1024 / 1024,
+                        total / 1024 / 1024,
+                    )
     logger.info("Saved %s", target)
     return target
 
@@ -122,6 +125,7 @@ def _load_model(name: str, device: str = "auto"):
 def _bgr_to_tensor(img: np.ndarray):
     """uint8 BGR → float32 RGB tensor [1, 3, H, W] in 0..1."""
     import torch
+
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     t = torch.from_numpy(rgb.astype(np.float32) / 255.0)
     t = t.permute(2, 0, 1).unsqueeze(0)
@@ -130,7 +134,6 @@ def _bgr_to_tensor(img: np.ndarray):
 
 def _tensor_to_bgr(t) -> np.ndarray:
     """float tensor [1,3,H,W] in 0..1 → uint8 BGR."""
-    import torch
     arr = t.squeeze(0).clamp(0, 1).cpu().numpy()
     arr = (arr * 255.0).round().astype(np.uint8)
     arr = arr.transpose(1, 2, 0)  # CHW → HWC
@@ -139,6 +142,7 @@ def _tensor_to_bgr(t) -> np.ndarray:
 
 def _process_tile(model, tile_bgr: np.ndarray) -> np.ndarray:
     import torch
+
     t = _bgr_to_tensor(tile_bgr)
     if next(model.model.parameters()).is_cuda:
         t = t.cuda()
@@ -221,9 +225,10 @@ def upscale_ai(
             in_bot = (overlap // 2) * model.scale if ty < n_tiles_y - 1 else 0
             in_right = (overlap // 2) * model.scale if tx < n_tiles_x - 1 else 0
 
-            cropped = tile_out[in_top: tile_out.shape[0] - in_bot,
-                               in_left: tile_out.shape[1] - in_right]
-            out[oy0 + in_top: oy1 - in_bot, ox0 + in_left: ox1 - in_right] = cropped
+            cropped = tile_out[
+                in_top : tile_out.shape[0] - in_bot, in_left : tile_out.shape[1] - in_right
+            ]
+            out[oy0 + in_top : oy1 - in_bot, ox0 + in_left : ox1 - in_right] = cropped
 
             done += 1
             logger.info("  tile %d/%d", done, total)
@@ -241,7 +246,7 @@ def upscale_ai_safe(img: np.ndarray, scale: int = 2, **kw) -> np.ndarray:
     """Wrapper với fallback Lanczos nếu AI fail (không có deps, OOM, …)."""
     try:
         return upscale_ai(img, scale=scale, **kw)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("AI upscale fail (%s) — fallback Lanczos", exc)
         h, w = img.shape[:2]
         return cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LANCZOS4)

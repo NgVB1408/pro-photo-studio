@@ -32,6 +32,7 @@ Format:
 - Tên file: bất kỳ, tool dùng tên file làm sky id
 - Subfolder = category. Ảnh ở root → category "uncategorized"
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,10 +76,7 @@ def get_sky_library_dir() -> Path:
         d = _LIBRARY_DIR_OVERRIDE
     else:
         env = os.environ.get("WATERMARK_TOOLKIT_SKY_DIR")
-        if env:
-            d = Path(env).expanduser()
-        else:
-            d = Path.home() / ".pps_core" / "sky_library"
+        d = Path(env).expanduser() if env else Path.home() / ".pps_core" / "sky_library"
     d.mkdir(parents=True, exist_ok=True)
     # Tạo subfolder category để user có template
     for cat in STANDARD_CATEGORIES:
@@ -95,15 +93,13 @@ def _build_index() -> dict[str, list[Path]]:
         if sub.is_dir():
             cat = sub.name
             files = [
-                f for f in sub.iterdir()
-                if f.is_file() and f.suffix.lower() in _VALID_EXTENSIONS
+                f for f in sub.iterdir() if f.is_file() and f.suffix.lower() in _VALID_EXTENSIONS
             ]
             if files:
                 index[cat] = sorted(files)
     # Ảnh ở root = uncategorized
     root_files = [
-        f for f in root.iterdir()
-        if f.is_file() and f.suffix.lower() in _VALID_EXTENSIONS
+        f for f in root.iterdir() if f.is_file() and f.suffix.lower() in _VALID_EXTENSIONS
     ]
     if root_files:
         index["uncategorized"] = sorted(root_files)
@@ -170,6 +166,7 @@ def add_sky(
             i += 1
     if copy:
         import shutil
+
         shutil.copy2(src, dst)
     else:
         src.rename(dst)
@@ -217,7 +214,9 @@ def random_sky(
     return img, {
         "id": picked.stem,
         "path": str(picked),
-        "category": picked.parent.name if picked.parent != get_sky_library_dir() else "uncategorized",
+        "category": picked.parent.name
+        if picked.parent != get_sky_library_dir()
+        else "uncategorized",
     }
 
 
@@ -308,8 +307,9 @@ def download_samples(timeout: float = 30.0) -> dict[str, int]:
                 added += 1
                 continue
             try:
-                resp = requests.get(url, timeout=timeout, stream=True,
-                                     headers={"User-Agent": "Mozilla/5.0"})
+                resp = requests.get(
+                    url, timeout=timeout, stream=True, headers={"User-Agent": "Mozilla/5.0"}
+                )
                 if resp.status_code != 200:
                     logger.warning("Pexels %d cho %s", resp.status_code, url)
                     continue
@@ -320,9 +320,8 @@ def download_samples(timeout: float = 30.0) -> dict[str, int]:
                             fh.write(chunk)
                 tmp.rename(dst)
                 added += 1
-                logger.info("Tải %s (%.0f KB)", dst.name,
-                            dst.stat().st_size / 1024)
-            except Exception as exc:  # noqa: BLE001
+                logger.info("Tải %s (%.0f KB)", dst.name, dst.stat().st_size / 1024)
+            except Exception as exc:
                 logger.warning("Tải %s thất bại: %s", url, exc)
         results[cat] = added
     refresh_index()

@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from pps_core.inpaint import InpaintBackend, inpaint, inpaint_opencv
 
 

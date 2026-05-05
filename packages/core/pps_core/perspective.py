@@ -14,6 +14,7 @@ Algorithm:
 
 Output: (warped, report) — report dict có applied/skew/vp_y/lines_used/direction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,11 +30,11 @@ logger = logging.getLogger(__name__)
 class UprightReport:
     applied: bool
     reason: str = ""
-    skew: float = 0.0          # tỉ lệ skew (0..max_skew)
+    skew: float = 0.0  # tỉ lệ skew (0..max_skew)
     vp_x: float = 0.0
     vp_y: float = 0.0
     lines_used: int = 0
-    direction: str = ""        # "up" (tilt up) | "down" (tilt down)
+    direction: str = ""  # "up" (tilt up) | "down" (tilt down)
     angle_estimate_deg: float = 0.0
 
 
@@ -45,15 +46,18 @@ def _detect_vertical_lines(
     max_lines: int = 200,
 ):
     """Trả về list (x_top, y_top, x_bot, y_bot, angle_from_vert_deg)."""
-    h, w = img.shape[:2]
+    h, _w = img.shape[:2]
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     edges = cv2.Canny(gray, 60, 180, apertureSize=3)
 
     min_len = int(h * min_length_frac)
     lines = cv2.HoughLinesP(
-        edges, rho=1, theta=np.pi / 180,
+        edges,
+        rho=1,
+        theta=np.pi / 180,
         threshold=max(60, min_len // 2),
-        minLineLength=min_len, maxLineGap=18,
+        minLineLength=min_len,
+        maxLineGap=18,
     )
     if lines is None:
         return []
@@ -106,7 +110,7 @@ def correct_upright(
     *,
     max_skew: float = 0.18,
     min_lines: int = 12,
-    min_vp_distance: float = 0.70,   # |dy/h| tối thiểu
+    min_vp_distance: float = 0.70,  # |dy/h| tối thiểu
     safe_max_skew: float = 0.22,
 ) -> tuple[np.ndarray, UprightReport]:
     """Sửa perspective chính xác hơn rotate 2D — phù hợp cho ảnh BĐS chụp wide.
@@ -135,8 +139,9 @@ def correct_upright(
     if len(lines) < min_lines:
         return (
             img.copy(),
-            UprightReport(applied=False,
-                          reason=f"Chỉ có {len(lines)} vertical line (cần ≥{min_lines})"),
+            UprightReport(
+                applied=False, reason=f"Chỉ có {len(lines)} vertical line (cần ≥{min_lines})"
+            ),
         )
 
     vp = _vanishing_point(lines)
@@ -155,8 +160,10 @@ def correct_upright(
             UprightReport(
                 applied=False,
                 reason=f"VP quá gần center ({dy_norm:.2f}h < {min_vp_distance}h) — "
-                       f"có thể warp gây méo lớn",
-                vp_x=vp_x, vp_y=vp_y, lines_used=len(lines),
+                f"có thể warp gây méo lớn",
+                vp_x=vp_x,
+                vp_y=vp_y,
+                lines_used=len(lines),
             ),
         )
 
@@ -172,26 +179,29 @@ def correct_upright(
     if vp_y < cy:
         # VP ở phía trên → camera tilt up → top of image bị "nén" → mở rộng top
         direction = "up"
-        src = np.array([
-            [0, 0], [w, 0], [w, h], [0, h]
-        ], dtype=np.float32)
-        dst = np.array([
-            [-w * skew * 0.5, 0],
-            [w * (1 + skew * 0.5), 0],
-            [w, h],
-            [0, h],
-        ], dtype=np.float32)
+        src = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
+        dst = np.array(
+            [
+                [-w * skew * 0.5, 0],
+                [w * (1 + skew * 0.5), 0],
+                [w, h],
+                [0, h],
+            ],
+            dtype=np.float32,
+        )
     else:
         # VP phía dưới → camera tilt down → mở rộng bottom
         direction = "down"
-        src = np.array([
-            [0, 0], [w, 0], [w, h], [0, h]
-        ], dtype=np.float32)
-        dst = np.array([
-            [0, 0], [w, 0],
-            [w * (1 + skew * 0.5), h],
-            [-w * skew * 0.5, h],
-        ], dtype=np.float32)
+        src = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
+        dst = np.array(
+            [
+                [0, 0],
+                [w, 0],
+                [w * (1 + skew * 0.5), h],
+                [-w * skew * 0.5, h],
+            ],
+            dtype=np.float32,
+        )
 
     # Offset dst để toàn bộ trong canvas mới (rộng hơn)
     new_w = int(w * (1 + skew))
@@ -200,13 +210,15 @@ def correct_upright(
 
     H = cv2.getPerspectiveTransform(src, dst_shifted)
     warped = cv2.warpPerspective(
-        img, H, (new_w, h),
+        img,
+        H,
+        (new_w, h),
         flags=cv2.INTER_LANCZOS4,
         borderMode=cv2.BORDER_REPLICATE,
     )
 
     # Crop về size gốc (centered) — phần warped ngoài rìa thường có distortion mạnh
-    crop_x0 = int(round(offset_x))
+    crop_x0 = round(offset_x)
     crop_x1 = crop_x0 + w
     if crop_x1 > new_w:
         crop_x1 = new_w

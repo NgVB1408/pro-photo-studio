@@ -1,11 +1,11 @@
 """Tests for RAW input handling in utils.read_image."""
+
 from __future__ import annotations
 
 import importlib
 from pathlib import Path
 
 import pytest
-
 from pps_core.utils import RAW_EXTS, read_image
 
 
@@ -23,6 +23,7 @@ def test_raw_unsupported_without_rawpy(monkeypatch, tmp_path: Path):
 
     # Force "rawpy không cài" bằng cách block import
     import sys
+
     original = sys.modules.get("rawpy")
     sys.modules["rawpy"] = None  # type: ignore[assignment]
     try:

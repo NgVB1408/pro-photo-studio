@@ -20,6 +20,7 @@ Usage:
     from pps_core.sky_seg_ai import detect_sky_mask_ai
     mask = detect_sky_mask_ai(img)  # luôn có mask, không raise
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,8 +33,8 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-REMBG_MODEL_DEFAULT = "u2net"     # general SOD; ~167MB download lần đầu
-REMBG_MAX_SIDE = 1024              # rembg scale — 4K ảnh không cần full-res segmentation
+REMBG_MODEL_DEFAULT = "u2net"  # general SOD; ~167MB download lần đầu
+REMBG_MAX_SIDE = 1024  # rembg scale — 4K ảnh không cần full-res segmentation
 
 
 _rembg_lock = threading.Lock()
@@ -43,8 +44,9 @@ _rembg_lock = threading.Lock()
 def _is_rembg_available() -> bool:
     """Có cài rembg + onnxruntime không. Cache result để khỏi probe nhiều lần."""
     try:
-        import rembg  # noqa: F401
         import onnxruntime  # noqa: F401
+        import rembg  # noqa: F401
+
         return True
     except ImportError as exc:
         logger.info("rembg/onnxruntime không cài (%s) — AI sky tắt, fallback heuristic", exc)
@@ -55,6 +57,7 @@ def _is_rembg_available() -> bool:
 def _get_rembg_session(model_name: str):
     """Lazy create rembg session — cache để khỏi load model mỗi ảnh."""
     from rembg import new_session
+
     logger.info("rembg: loading session model=%s (lần đầu sẽ download ~170MB)", model_name)
     return new_session(model_name)
 
@@ -67,12 +70,14 @@ def is_available() -> bool:
 def _foreground_alpha(img_bgr: np.ndarray, model_name: str = REMBG_MODEL_DEFAULT) -> np.ndarray:
     """Trả uint8 alpha mask (0..255) — high = foreground/subject."""
     from rembg import remove
+
     h, w = img_bgr.shape[:2]
     short = min(h, w)
     if short > REMBG_MAX_SIDE:
         scale = REMBG_MAX_SIDE / short
         small = cv2.resize(
-            img_bgr, (int(round(w * scale)), int(round(h * scale))),
+            img_bgr,
+            (round(w * scale), round(h * scale)),
             interpolation=cv2.INTER_AREA,
         )
     else:
@@ -101,8 +106,7 @@ def _hsv_sky_color_mask(img_bgr: np.ndarray) -> np.ndarray:
     bright_overcast = (S <= 30) & (V >= 200)
     bright_low_sat = (S <= 50) & (V >= 170) & (H >= 80) & (H <= 140)
     sunset_warm = (H <= 25) & (V >= 180) & (S >= 60)  # sunset/golden hour
-    return ((blue_hue | bright_overcast | bright_low_sat | sunset_warm)
-            .astype(np.uint8) * 255)
+    return (blue_hue | bright_overcast | bright_low_sat | sunset_warm).astype(np.uint8) * 255
 
 
 def _alpha_feather_edges(img_bgr: np.ndarray, mask: np.ndarray, *, radius: int = 4) -> np.ndarray:
@@ -144,31 +148,32 @@ def detect_sky_mask_ai(
     if require_outdoor:
         try:
             from .realestate import is_outdoor_scene
+
             outdoor, scene_info = is_outdoor_scene(img)
             info["outdoor_check"] = scene_info
             if not outdoor:
                 info["mode"] = "skip_indoor"
                 return np.zeros((h, w), dtype=np.uint8)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("outdoor check fail: %s — proceed", exc)
 
     if not _is_rembg_available():
         if not fallback:
-            raise RuntimeError(
-                "AI sky cần rembg + onnxruntime. Cài: `pip install -e .[sky-ai]`"
-            )
+            raise RuntimeError("AI sky cần rembg + onnxruntime. Cài: `pip install -e .[sky-ai]`")
         info["mode"] = "fallback_heuristic"
         from .realestate import detect_sky_mask
+
         return detect_sky_mask(img, require_outdoor=False)
 
     try:
         fg_alpha = _foreground_alpha(img, model_name=model_name)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("rembg fail: %s — fallback heuristic", exc)
         info["mode"] = "fallback_after_error"
         info["error"] = str(exc)
         if fallback:
             from .realestate import detect_sky_mask
+
             return detect_sky_mask(img, require_outdoor=False)
         raise
 
@@ -232,6 +237,7 @@ def detect_sky_mask_smart(
     if prefer == "ai":
         return detect_sky_mask_ai(img, fallback=True, debug_info=debug_info)
     from .realestate import detect_sky_mask
+
     if debug_info is not None:
         debug_info["mode"] = "heuristic_forced"
     return detect_sky_mask(img)

@@ -14,6 +14,7 @@ Backends:
 
 Manual mode: user click bbox → inpaint trực tiếp.
 """
+
 from __future__ import annotations
 
 import logging
@@ -72,13 +73,17 @@ def _detect_people_hog(img: np.ndarray) -> list[tuple[int, int, int, int]]:
     hog = cv2.HOGDescriptor()
     hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
     found, _ = hog.detectMultiScale(
-        img, winStride=(8, 8), padding=(8, 8), scale=1.05,
+        img,
+        winStride=(8, 8),
+        padding=(8, 8),
+        scale=1.05,
     )
     return [(int(x), int(y), int(w), int(h)) for x, y, w, h in found]
 
 
 def remove_photographer(
-    img: np.ndarray, *,
+    img: np.ndarray,
+    *,
     mirror_bboxes: list[tuple[int, int, int, int]] | None = None,
     use_ai_inpaint: bool = True,
 ) -> tuple[np.ndarray, PhotogRemovalReport]:
@@ -107,11 +112,11 @@ def remove_photographer(
     mask = np.zeros((H, W), dtype=np.uint8)
 
     for mx, my, mw, mh in mirror_bboxes:
-        mirror_crop = out[my:my+mh, mx:mx+mw]
+        mirror_crop = out[my : my + mh, mx : mx + mw]
         if mirror_crop.size == 0:
             continue
         people = _detect_people_hog(mirror_crop)
-        for (px, py, pw, ph) in people:
+        for px, py, pw, ph in people:
             # Convert tới global coord
             gx = mx + px
             gy = my + py
@@ -134,25 +139,33 @@ def remove_photographer(
     if use_ai_inpaint:
         try:
             from .inpaint_ai import inpaint_ai
+
             out = inpaint_ai(out, mask, dilate=5)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("LaMa fail (%s) — fallback Telea", exc)
             from .inpaint import inpaint_opencv
+
             out = inpaint_opencv(out, mask, method="telea", radius=5)
     else:
         from .inpaint import inpaint_opencv
+
         out = inpaint_opencv(out, mask, method="telea", radius=5)
 
     report.regions_inpainted = len(report.regions)
-    logger.info("Photographer Removal: mirrors=%d people=%d inpainted=%d",
-                report.mirrors_detected, report.photographers_detected,
-                report.regions_inpainted)
+    logger.info(
+        "Photographer Removal: mirrors=%d people=%d inpainted=%d",
+        report.mirrors_detected,
+        report.photographers_detected,
+        report.regions_inpainted,
+    )
     return out, report
 
 
 def remove_object_manual(
-    img: np.ndarray, bbox: tuple[int, int, int, int],
-    *, use_ai_inpaint: bool = True,
+    img: np.ndarray,
+    bbox: tuple[int, int, int, int],
+    *,
+    use_ai_inpaint: bool = True,
 ) -> np.ndarray:
     """User-defined object bbox → inpaint."""
     out = img.copy()
@@ -162,6 +175,8 @@ def remove_object_manual(
     cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
     if use_ai_inpaint:
         from .inpaint_ai import inpaint_ai
+
         return inpaint_ai(out, mask, dilate=5)
     from .inpaint import inpaint_opencv
+
     return inpaint_opencv(out, mask, method="telea", radius=5)

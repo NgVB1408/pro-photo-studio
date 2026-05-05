@@ -23,7 +23,13 @@ import numpy as np
 from tqdm import tqdm
 
 from .inpaint import InpaintBackend, inpaint
-from .mask import build_mask_from_boxes, build_mask_from_color, build_mask_from_image, combine_masks, dilate_mask
+from .mask import (
+    build_mask_from_boxes,
+    build_mask_from_color,
+    build_mask_from_image,
+    combine_masks,
+    dilate_mask,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +55,7 @@ def _build_static_mask_from_frame(
         masks.append(build_mask_from_color(frame, lower=color_lower, upper=color_upper))
     if use_auto:
         from .detect import auto_mask
+
         masks.append(auto_mask(frame, dilate_iters=0))
     if not masks:
         raise ValueError("Cần ít nhất 1 nguồn mask: boxes/mask_path/color_lower/use_auto")
@@ -117,7 +124,9 @@ def process_video(
     static_mask: np.ndarray | None = None
     bar = tqdm(
         total=n_frames_target if n_frames_target > 0 else None,
-        disable=not progress, desc=in_path.name, unit="frame",
+        disable=not progress,
+        desc=in_path.name,
+        unit="frame",
     )
 
     n_processed = 0
@@ -131,20 +140,24 @@ def process_video(
 
             if mask_mode == "redetect":
                 from .detect import auto_mask
+
                 m = auto_mask(frame, dilate_iters=dilate_iters)
             else:
                 if static_mask is None:
                     static_mask = _build_static_mask_from_frame(
                         frame,
-                        boxes=boxes, mask_path=mask_path,
-                        color_lower=color_lower, color_upper=color_upper,
+                        boxes=boxes,
+                        mask_path=mask_path,
+                        color_lower=color_lower,
+                        color_upper=color_upper,
                         use_auto=(mask_mode == "auto"),
                         dilate_iters=dilate_iters,
                     )
                 m = static_mask
 
             cleaned = inpaint(
-                frame, m,
+                frame,
+                m,
                 backend=backend_enum,
                 opencv_method=opencv_method,
                 opencv_radius=opencv_radius,
@@ -162,7 +175,10 @@ def process_video(
     duration = n_processed / fps if fps else 0
     logger.info(
         "Video xong: %d frames @ %.2f fps -> %s (%.1fs nội dung)",
-        n_processed, fps, out_path, duration,
+        n_processed,
+        fps,
+        out_path,
+        duration,
     )
     return {
         "frames": n_processed,

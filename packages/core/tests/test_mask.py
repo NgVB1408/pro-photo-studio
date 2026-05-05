@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from pps_core.mask import (
     build_mask_from_boxes,
     build_mask_from_color,
@@ -20,13 +19,13 @@ def test_mask_from_single_box():
     mask = build_mask_from_boxes(img, [(5, 5, 10, 8)])
     assert mask.shape == (20, 30)
     assert mask.dtype == np.uint8
-    assert mask[5, 5] == 255          # góc trên-trái
-    assert mask[12, 14] == 255        # góc dưới-phải (row 12, col 14)
-    assert mask[8, 10] == 255         # giữa
-    assert mask[4, 5] == 0            # ngay trên top edge
-    assert mask[5, 4] == 0            # ngay trái left edge
-    assert mask[13, 14] == 0          # ngay dưới bottom edge
-    assert mask[12, 15] == 0          # ngay phải right edge (exclusive)
+    assert mask[5, 5] == 255  # góc trên-trái
+    assert mask[12, 14] == 255  # góc dưới-phải (row 12, col 14)
+    assert mask[8, 10] == 255  # giữa
+    assert mask[4, 5] == 0  # ngay trên top edge
+    assert mask[5, 4] == 0  # ngay trái left edge
+    assert mask[13, 14] == 0  # ngay dưới bottom edge
+    assert mask[12, 15] == 0  # ngay phải right edge (exclusive)
 
 
 def test_mask_from_multiple_boxes_clamped_to_image():

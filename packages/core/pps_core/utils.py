@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 import cv2
 import numpy as np
@@ -28,9 +28,28 @@ def ensure_dir(path: str | Path) -> Path:
 
 
 RAW_EXTS = {
-    ".dng", ".cr2", ".cr3", ".nef", ".nrw", ".arw", ".srf", ".sr2",
-    ".raf", ".rw2", ".orf", ".pef", ".srw", ".crw", ".kdc", ".dcr",
-    ".mrw", ".rwl", ".x3f", ".3fr", ".iiq", ".fff",
+    ".dng",
+    ".cr2",
+    ".cr3",
+    ".nef",
+    ".nrw",
+    ".arw",
+    ".srf",
+    ".sr2",
+    ".raf",
+    ".rw2",
+    ".orf",
+    ".pef",
+    ".srw",
+    ".crw",
+    ".kdc",
+    ".dcr",
+    ".mrw",
+    ".rwl",
+    ".x3f",
+    ".3fr",
+    ".iiq",
+    ".fff",
 }
 
 
@@ -128,7 +147,7 @@ def write_image(
     if exif_source and ext in {".jpg", ".jpeg", ".webp"}:
         try:
             _copy_exif(exif_source, p)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Không copy được EXIF từ %s: %s", exif_source, exc)
     return p
 
@@ -143,7 +162,11 @@ def _copy_exif(src: str | Path, dst: str | Path) -> None:
     if not exif:
         return
     dst_img = Image.open(dst_path)
-    dst_img.save(dst_path, exif=exif, quality="keep" if dst_path.suffix.lower() in {".jpg", ".jpeg"} else None)
+    dst_img.save(
+        dst_path,
+        exif=exif,
+        quality="keep" if dst_path.suffix.lower() in {".jpg", ".jpeg"} else None,
+    )
 
 
 @contextmanager

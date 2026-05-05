@@ -11,6 +11,7 @@ Pipeline:
 3. Sharpen full image
 4. Blend: result = sharp * mask + smooth * (1 - mask)
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,7 @@ def _gradient_saliency(img: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
     gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
     gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
-    grad = np.sqrt(gx ** 2 + gy ** 2)
+    grad = np.sqrt(gx**2 + gy**2)
     # Smooth thành saliency map mượt
     h, w = gray.shape
     box_k = max(15, min(h, w) // 80)

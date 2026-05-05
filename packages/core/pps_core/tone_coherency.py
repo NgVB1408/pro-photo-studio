@@ -20,11 +20,13 @@ API:
     anchor = fitter.fit_anchor()
     img = anchor.apply(img, strength=0.6)
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Literal
+from typing import Literal
 
 import cv2
 import numpy as np
@@ -59,7 +61,7 @@ def tone_map_real_estate(
     """
     if img.dtype != np.uint8:
         raise ValueError("tone_map_real_estate cần uint8 input")
-    f = (img.astype(np.float32) / 255.0)
+    f = img.astype(np.float32) / 255.0
     # Gamma slight brighten
     f = np.power(f, gamma)
     bright = np.clip(f * 255.0, 0, 255).astype(np.uint8)
@@ -76,7 +78,7 @@ class TonePreset:
     """Batch-wide tone preset — locked params apply tới mọi ảnh trong batch."""
 
     name: PresetName = "neutral"
-    strength: float = 0.5         # 0..1, bias strength
+    strength: float = 0.5  # 0..1, bias strength
 
     # Computed at first call (cached)
     _wb_scales: tuple[float, float, float] | None = None
@@ -103,6 +105,7 @@ class TonePreset:
         2. Apply locked color shift theo preset (warm/cool/neutral/real_estate)
         """
         from .enhance import auto_white_balance
+
         # Step 1: per-image neutralization với strict auto WB
         neutral = auto_white_balance(img, method="auto")
 
@@ -150,6 +153,7 @@ def detect_scene_tone(img: np.ndarray) -> PresetName:
 # =====================================================================
 # Dynamic batch anchor
 # =====================================================================
+
 
 @dataclass(frozen=True)
 class BatchAnchor:
@@ -247,8 +251,9 @@ class BatchToneFitter:
     def add_from_path(self, path) -> bool:
         try:
             from .utils import read_image
+
             img = read_image(path)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("BatchToneFitter skip %s: %s", path, exc)
             return False
         return self.add(img)
@@ -281,6 +286,7 @@ class BatchToneFitter:
             return img
         scale = self._sample_short_edge / short
         return cv2.resize(
-            img, (max(1, int(w * scale)), max(1, int(h * scale))),
+            img,
+            (max(1, int(w * scale)), max(1, int(h * scale))),
             interpolation=cv2.INTER_AREA,
         )

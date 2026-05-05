@@ -67,22 +67,23 @@ def _align_b_to_a(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     # BORDER_REFLECT_101 tránh viền đen ở rìa khi alignment có translate/rotate;
     # ngoài vùng overlap không phải là 0,0,0 → diff không tạo mask giả ở rìa.
     return cv2.warpPerspective(
-        b, H, (w, h),
+        b,
+        H,
+        (w, h),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_REFLECT_101,
     )
 
 
-def _color_match(a: np.ndarray, b: np.ndarray, exclude_mask: np.ndarray | None = None) -> np.ndarray:
+def _color_match(
+    a: np.ndarray, b: np.ndarray, exclude_mask: np.ndarray | None = None
+) -> np.ndarray:
     """Linear color transfer per channel: tìm scale + offset để A match style của B
     ngoài vùng exclude_mask. Dùng least-squares trên pixel non-mask.
     """
     a32 = a.astype(np.float32)
     b32 = b.astype(np.float32)
-    if exclude_mask is not None:
-        valid = exclude_mask == 0
-    else:
-        valid = np.ones(a.shape[:2], dtype=bool)
+    valid = exclude_mask == 0 if exclude_mask is not None else np.ones(a.shape[:2], dtype=bool)
     out = a.copy().astype(np.float32)
     for c in range(a.shape[2] if a.ndim == 3 else 1):
         ac = a32[..., c] if a.ndim == 3 else a32
@@ -127,7 +128,10 @@ def _build_diff_mask(
     diff_max_raw = diff_raw.max(axis=2) if diff_raw.ndim == 3 else diff_raw
     coarse = (diff_max_raw >= 50).astype(np.uint8) * 255
     coarse = cv2.morphologyEx(
-        coarse, cv2.MORPH_DILATE, np.ones((9, 9), dtype=np.uint8), iterations=2,
+        coarse,
+        cv2.MORPH_DILATE,
+        np.ones((9, 9), dtype=np.uint8),
+        iterations=2,
     )
 
     # Pass 2: color-match A → B style ngoài vùng coarse
@@ -154,7 +158,10 @@ def _build_diff_mask(
 
     # Close + dilate
     clean = cv2.morphologyEx(
-        clean, cv2.MORPH_CLOSE, np.ones((7, 7), dtype=np.uint8), iterations=2,
+        clean,
+        cv2.MORPH_CLOSE,
+        np.ones((7, 7), dtype=np.uint8),
+        iterations=2,
     )
     if dilate_iters > 0:
         clean = cv2.dilate(clean, kernel3, iterations=dilate_iters)
@@ -162,7 +169,11 @@ def _build_diff_mask(
 
 
 def _seamless_or_alpha_blend(
-    a: np.ndarray, b: np.ndarray, mask: np.ndarray, *, feather_px: int = 3,
+    a: np.ndarray,
+    b: np.ndarray,
+    mask: np.ndarray,
+    *,
+    feather_px: int = 3,
 ) -> np.ndarray:
     """Blend a vào b tại vùng mask, dùng Poisson seamlessClone cho color match
     tự nhiên (xử lý 2 ảnh có exposure/color khác nhau như enhanced vs raw).
@@ -187,7 +198,7 @@ def _seamless_or_alpha_blend(
             continue
 
         # Component mask + crop region
-        comp_mask = ((labels == i).astype(np.uint8) * 255)
+        comp_mask = (labels == i).astype(np.uint8) * 255
 
         # Center của component
         cx = x + bw // 2
@@ -196,44 +207,50 @@ def _seamless_or_alpha_blend(
         # seamlessClone yêu cầu: source và destination cùng size, mask cùng size,
         # center điểm cần clone. Không xử lý được khi component sát rìa.
         margin = 5
-        if (
-            x < margin or y < margin
-            or x + bw > w - margin or y + bh > h - margin
-        ):
+        if x < margin or y < margin or x + bw > w - margin or y + bh > h - margin:
             # Fallback: alpha blend cho component sát rìa
-            roi_mask = comp_mask[y:y+bh, x:x+bw].astype(np.float32) / 255.0
+            roi_mask = comp_mask[y : y + bh, x : x + bw].astype(np.float32) / 255.0
             if feather_px > 0:
                 roi_mask = cv2.GaussianBlur(
-                    roi_mask, (feather_px * 2 + 1, feather_px * 2 + 1), 0,
+                    roi_mask,
+                    (feather_px * 2 + 1, feather_px * 2 + 1),
+                    0,
                 )
             roi_mask = roi_mask[..., None]
-            roi_a = a[y:y+bh, x:x+bw].astype(np.float32)
-            roi_b = result[y:y+bh, x:x+bw].astype(np.float32)
-            result[y:y+bh, x:x+bw] = (
-                roi_a * roi_mask + roi_b * (1.0 - roi_mask)
-            ).astype(np.uint8)
+            roi_a = a[y : y + bh, x : x + bw].astype(np.float32)
+            roi_b = result[y : y + bh, x : x + bw].astype(np.float32)
+            result[y : y + bh, x : x + bw] = (roi_a * roi_mask + roi_b * (1.0 - roi_mask)).astype(
+                np.uint8
+            )
             continue
 
         try:
             result = cv2.seamlessClone(
-                a, result, comp_mask, (cx, cy), cv2.NORMAL_CLONE,
+                a,
+                result,
+                comp_mask,
+                (cx, cy),
+                cv2.NORMAL_CLONE,
             )
         except cv2.error as exc:
             logger.warning(
                 "seamlessClone fail (%s), fallback alpha blend cho component %d",
-                exc, i,
+                exc,
+                i,
             )
-            roi_mask = comp_mask[y:y+bh, x:x+bw].astype(np.float32) / 255.0
+            roi_mask = comp_mask[y : y + bh, x : x + bw].astype(np.float32) / 255.0
             if feather_px > 0:
                 roi_mask = cv2.GaussianBlur(
-                    roi_mask, (feather_px * 2 + 1, feather_px * 2 + 1), 0,
+                    roi_mask,
+                    (feather_px * 2 + 1, feather_px * 2 + 1),
+                    0,
                 )
             roi_mask = roi_mask[..., None]
-            roi_a = a[y:y+bh, x:x+bw].astype(np.float32)
-            roi_b = result[y:y+bh, x:x+bw].astype(np.float32)
-            result[y:y+bh, x:x+bw] = (
-                roi_a * roi_mask + roi_b * (1.0 - roi_mask)
-            ).astype(np.uint8)
+            roi_a = a[y : y + bh, x : x + bw].astype(np.float32)
+            roi_b = result[y : y + bh, x : x + bw].astype(np.float32)
+            result[y : y + bh, x : x + bw] = (roi_a * roi_mask + roi_b * (1.0 - roi_mask)).astype(
+                np.uint8
+            )
     return result
 
 
@@ -266,8 +283,7 @@ def composite_from_original(
 
     # Resize b về size a nếu khác
     if a.shape[:2] != b.shape[:2]:
-        logger.info("Resize watermarked %s -> %s để match original",
-                    b.shape[:2], a.shape[:2])
+        logger.info("Resize watermarked %s -> %s để match original", b.shape[:2], a.shape[:2])
         b = cv2.resize(b, (a.shape[1], a.shape[0]), interpolation=cv2.INTER_LANCZOS4)
 
     used_align = False
@@ -282,8 +298,9 @@ def composite_from_original(
                 b = b_aligned
                 used_align = True
             else:
-                logger.info("Align không cải thiện (raw=%.2f align=%.2f), dùng nguyên",
-                            d_raw, d_align)
+                logger.info(
+                    "Align không cải thiện (raw=%.2f align=%.2f), dùng nguyên", d_raw, d_align
+                )
         except RuntimeError as exc:
             logger.warning("Align fail: %s — dùng ảnh nguyên", exc)
 
@@ -300,7 +317,9 @@ def composite_from_original(
         result = _seamless_or_alpha_blend(a_matched, b, mask, feather_px=feather_px)
 
     out = write_image(
-        output_path, result, quality=quality,
+        output_path,
+        result,
+        quality=quality,
         exif_source=watermarked_path if keep_exif else None,
     )
     return CompositeReport(

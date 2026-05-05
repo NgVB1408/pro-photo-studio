@@ -10,8 +10,8 @@ mask cùng kích thước HxW.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import cv2
 import numpy as np

@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from pps_core.utils import ensure_dir, read_image, safe_filename, write_image
 
 

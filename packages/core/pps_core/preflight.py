@@ -20,10 +20,11 @@ Severity:
     "warn" — nên xem lại (blur nhẹ / exposure clipping ≥10%)
     "fail" — gần như không cứu được — đề xuất retake
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -52,8 +53,14 @@ class PreflightReport:
     def as_dict(self) -> dict:
         d = asdict(self)
         # Round floats để CSV gọn
-        for k in ("blur_score", "blur_uniform", "highlight_clip_pct",
-                  "shadow_clip_pct", "avg_brightness", "color_cast"):
+        for k in (
+            "blur_score",
+            "blur_uniform",
+            "highlight_clip_pct",
+            "shadow_clip_pct",
+            "avg_brightness",
+            "color_cast",
+        ):
             d[k] = round(float(d[k]), 2)
         return d
 
@@ -65,23 +72,23 @@ class PreflightReport:
 
 # ===== Thresholds (tune để khớp với sensor DSLR/mirrorless điển hình) =====
 
-BLUR_FAIL = 60.0          # < 60 var = motion blur / out-of-focus rõ rệt
-BLUR_WARN = 150.0         # < 150 var = soft, có thể chấp nhận listing nhỏ
-BLUR_OK = 400.0           # ≥ 400 var = sharp
+BLUR_FAIL = 60.0  # < 60 var = motion blur / out-of-focus rõ rệt
+BLUR_WARN = 150.0  # < 150 var = soft, có thể chấp nhận listing nhỏ
+BLUR_OK = 400.0  # ≥ 400 var = sharp
 
 CLIP_HIGHLIGHT_FAIL = 18.0  # ≥18% pixel cháy → quá nhiều, recover hạn chế
 CLIP_HIGHLIGHT_WARN = 8.0
 CLIP_SHADOW_FAIL = 25.0
 CLIP_SHADOW_WARN = 12.0
 
-BRIGHTNESS_DARK_FAIL = 35.0   # mean V < 35 → quá tối
+BRIGHTNESS_DARK_FAIL = 35.0  # mean V < 35 → quá tối
 BRIGHTNESS_DARK_WARN = 60.0
 BRIGHTNESS_OVER_WARN = 220.0
 
-DIMENSION_FAIL = 720          # short side < 720 = MLS reject
+DIMENSION_FAIL = 720  # short side < 720 = MLS reject
 DIMENSION_WARN = 1080
 
-COLOR_CAST_WARN = 14.0        # |a*| or |b*| mean offset từ neutral 128
+COLOR_CAST_WARN = 14.0  # |a*| or |b*| mean offset từ neutral 128
 COLOR_CAST_FAIL = 22.0
 
 
@@ -128,8 +135,7 @@ def analyze_image(img: np.ndarray) -> PreflightReport:
     work = img
     if short_side > 1500:
         scale = 1500.0 / short_side
-        work = cv2.resize(img, (int(w * scale), int(h * scale)),
-                          interpolation=cv2.INTER_AREA)
+        work = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
     if work.ndim == 2:
         gray = work
@@ -154,8 +160,7 @@ def analyze_image(img: np.ndarray) -> PreflightReport:
     # WB / color cast — LAB a*,b* mean offset từ 128
     lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)
     rpt.color_cast = float(
-        max(abs(float(lab[..., 1].mean()) - 128.0),
-            abs(float(lab[..., 2].mean()) - 128.0))
+        max(abs(float(lab[..., 1].mean()) - 128.0), abs(float(lab[..., 2].mean()) - 128.0))
     )
 
     # ===== Decide severity + warnings =====
@@ -173,25 +178,17 @@ def analyze_image(img: np.ndarray) -> PreflightReport:
         severities.append("info")
 
     if rpt.highlight_clip_pct >= CLIP_HIGHLIGHT_FAIL:
-        rpt.warnings.append(
-            f"Cháy {rpt.highlight_clip_pct:.1f}% pixel — bracket exposure cần"
-        )
+        rpt.warnings.append(f"Cháy {rpt.highlight_clip_pct:.1f}% pixel — bracket exposure cần")
         severities.append("fail")
     elif rpt.highlight_clip_pct >= CLIP_HIGHLIGHT_WARN:
-        rpt.warnings.append(
-            f"Highlight clipping {rpt.highlight_clip_pct:.1f}%"
-        )
+        rpt.warnings.append(f"Highlight clipping {rpt.highlight_clip_pct:.1f}%")
         severities.append("warn")
 
     if rpt.shadow_clip_pct >= CLIP_SHADOW_FAIL:
-        rpt.warnings.append(
-            f"Chìm {rpt.shadow_clip_pct:.1f}% pixel — bù sáng / fill flash"
-        )
+        rpt.warnings.append(f"Chìm {rpt.shadow_clip_pct:.1f}% pixel — bù sáng / fill flash")
         severities.append("fail")
     elif rpt.shadow_clip_pct >= CLIP_SHADOW_WARN:
-        rpt.warnings.append(
-            f"Shadow clipping {rpt.shadow_clip_pct:.1f}%"
-        )
+        rpt.warnings.append(f"Shadow clipping {rpt.shadow_clip_pct:.1f}%")
         severities.append("warn")
 
     if rpt.avg_brightness < BRIGHTNESS_DARK_FAIL:
@@ -246,10 +243,11 @@ def analyze_image(img: np.ndarray) -> PreflightReport:
 def analyze_file(path: str | Path) -> PreflightReport:
     """Phân tích 1 file ảnh → PreflightReport."""
     from .utils import read_image
+
     p = Path(path)
     try:
         img = read_image(p)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         rpt = PreflightReport(severity="fail")
         rpt.warnings.append(f"Đọc ảnh fail: {exc}")
         rpt.suggested_action = "skip (cannot decode)"

@@ -71,7 +71,21 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S", "T20"]
+"**/tests/**/*.py" = ["S", "T20"]
 "**/__init__.py" = ["F401"]
+# Legacy modules ported from watermark-toolkit. Vietnamese docstrings
+# trigger RUF001/RUF002 false positives; ambiguous l/I single-char names
+# (E741) are domain-conventional in CV (LAB L channel, image I matrix).
+# Cleanup tracked in Phase 1.
+"packages/core/pps_core/**/*.py" = [
+    "RUF001",  # ambiguous-unicode-character-string (Vietnamese)
+    "RUF002",  # ambiguous-unicode-character-docstring (Vietnamese)
+    "RUF003",  # ambiguous-unicode-character-comment (Vietnamese)
+    "E741",    # ambiguous-variable-name (l, I conventional in CV/LAB)
+    "B008",    # function-call-in-default-argument (legacy, not a real issue here)
+    "S310",    # suspicious-url-open-usage (audited, sources controlled)
+    "SIM102",  # collapsible-if (intentional for readability in legacy)
+]
 
 [tool.ruff.format]
 quote-style = "double"

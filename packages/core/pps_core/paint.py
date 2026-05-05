@@ -52,11 +52,16 @@ class _PainterState:
         overlay[idx] = cv2.addWeighted(overlay[idx], 0.4, red[idx], 0.6, 0)
 
         # Vẽ vòng brush trên góc dưới-trái cho biết kích thước
-        h, w = overlay.shape[:2]
+        h, _w = overlay.shape[:2]
         cv2.circle(overlay, (40, h - 40), self.brush, (0, 255, 255), 2)
         cv2.putText(
-            overlay, f"brush={self.brush}px  mask={int(idx.sum())}px",
-            (80, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2,
+            overlay,
+            f"brush={self.brush}px  mask={int(idx.sum())}px",
+            (80, h - 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2,
         )
         if self.scale < 1.0:
             return cv2.resize(overlay, self.disp_size, interpolation=cv2.INTER_AREA)
@@ -64,7 +69,7 @@ class _PainterState:
 
 
 def _make_callback(state: _PainterState):
-    def on_mouse(event, x, y, flags, _param):  # noqa: ANN001
+    def on_mouse(event, x, y, flags, _param):
         ox, oy = state.to_orig(x, y)
         if event == cv2.EVENT_LBUTTONDOWN:
             state.drawing = True
@@ -85,6 +90,7 @@ def _make_callback(state: _PainterState):
             state.drawing = False
         elif event == cv2.EVENT_RBUTTONUP:
             state.erasing = False
+
     return on_mouse
 
 
@@ -109,7 +115,8 @@ def paint_mask(
     if initial_mask is not None:
         if initial_mask.shape != image.shape[:2]:
             initial_mask = cv2.resize(
-                initial_mask, (image.shape[1], image.shape[0]),
+                initial_mask,
+                (image.shape[1], image.shape[0]),
                 interpolation=cv2.INTER_NEAREST,
             )
         state.mask = (initial_mask > 0).astype(np.uint8) * 255
@@ -118,7 +125,6 @@ def paint_mask(
     cv2.resizeWindow(WINDOW_NAME, *state.disp_size)
     cv2.setMouseCallback(WINDOW_NAME, _make_callback(state))
 
-    print("Painter ready. h = help, s = save, q/ESC = exit.")
     saved = False
     try:
         while True:
@@ -131,10 +137,7 @@ def paint_mask(
             if key in (ord("q"), 27):  # ESC
                 break
             if key == ord("h"):
-                print(
-                    "[Painter] Left=draw  Right=erase  +/-: brush  r=reset  "
-                    "s=save  q/ESC=quit"
-                )
+                pass
             elif key in (ord("+"), ord("="), ord("]")):
                 state.brush = min(500, state.brush + 4)
                 state.dirty = True
@@ -152,6 +155,7 @@ def paint_mask(
 
     if save_to and saved:
         from .utils import write_image
+
         write_image(save_to, state.mask)
         logger.info("Đã lưu mask: %s", save_to)
     return state.mask if saved else None

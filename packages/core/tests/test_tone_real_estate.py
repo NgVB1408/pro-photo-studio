@@ -1,9 +1,9 @@
 """Tests cho tone_map_real_estate (port từ Edit-image / imagen-ai)."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from pps_core.tone_coherency import (
     TonePreset,
     tone_map_real_estate,

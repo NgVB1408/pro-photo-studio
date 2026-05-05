@@ -10,6 +10,7 @@ Pipeline:
 
 Trả: sky_asset đã flip nếu cần.
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,7 +70,8 @@ def detect_sky_sun_position(sky_asset: np.ndarray) -> str:
 
 
 def match_sky_to_scene_direction(
-    sky_asset: np.ndarray, scene: np.ndarray,
+    sky_asset: np.ndarray,
+    scene: np.ndarray,
 ) -> np.ndarray:
     """Flip sky asset horizontally nếu sun direction mâu thuẫn với scene shadow."""
     scene_dir = detect_scene_light_direction(scene)
@@ -78,7 +80,6 @@ def match_sky_to_scene_direction(
         return sky_asset
     # Mâu thuẫn → flip
     if scene_dir != sky_dir:
-        logger.info("sky direction match: scene=%s sky=%s → flip horizontal",
-                    scene_dir, sky_dir)
+        logger.info("sky direction match: scene=%s sky=%s → flip horizontal", scene_dir, sky_dir)
         return cv2.flip(sky_asset, 1)
     return sky_asset

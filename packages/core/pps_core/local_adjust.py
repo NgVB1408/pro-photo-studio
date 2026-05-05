@@ -14,6 +14,7 @@ Adjustment engine:
 
 Tất cả mask trả float32 [0..1] (giống Lightroom feather).
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,11 +30,15 @@ logger = logging.getLogger(__name__)
 # Mask generators
 # =====================================================================
 
+
 def radial_mask(
-    h: int, w: int,
+    h: int,
+    w: int,
     *,
-    cx_frac: float = 0.5, cy_frac: float = 0.5,
-    rx_frac: float = 0.4, ry_frac: float = 0.4,
+    cx_frac: float = 0.5,
+    cy_frac: float = 0.5,
+    rx_frac: float = 0.4,
+    ry_frac: float = 0.4,
     feather: float = 0.5,
     inverted: bool = False,
 ) -> np.ndarray:
@@ -60,10 +65,13 @@ def radial_mask(
 
 
 def graduated_mask(
-    h: int, w: int,
+    h: int,
+    w: int,
     *,
-    x0_frac: float = 0.5, y0_frac: float = 0.0,
-    x1_frac: float = 0.5, y1_frac: float = 0.5,
+    x0_frac: float = 0.5,
+    y0_frac: float = 0.0,
+    x1_frac: float = 0.5,
+    y1_frac: float = 0.5,
     feather: float = 0.3,
 ) -> np.ndarray:
     """Linear gradient mask (Lightroom Graduated Filter).
@@ -94,7 +102,8 @@ def graduated_mask(
 
 
 def brush_mask(
-    h: int, w: int,
+    h: int,
+    w: int,
     strokes: list[dict],
     *,
     feather: float = 0.5,
@@ -111,14 +120,19 @@ def brush_mask(
         size = int(s.get("size", 30))
         if "x0" in s:
             cv2.line(
-                mask, (int(s["x0"]), int(s["y0"])),
+                mask,
+                (int(s["x0"]), int(s["y0"])),
                 (int(s["x1"]), int(s["y1"])),
-                color=flow, thickness=size,
+                color=flow,
+                thickness=size,
             )
         else:
             cv2.circle(
-                mask, (int(s["x"]), int(s["y"])),
-                radius=size // 2, color=flow, thickness=-1,
+                mask,
+                (int(s["x"]), int(s["y"])),
+                radius=size // 2,
+                color=flow,
+                thickness=-1,
             )
     if feather > 0:
         sigma = max(1.0, feather * 10.0)
@@ -130,9 +144,11 @@ def brush_mask(
 # Local adjustment engine
 # =====================================================================
 
+
 @dataclass
 class LocalParams:
     """Adjust params trong vùng mask. Range -1..+1 (như Lightroom)."""
+
     exposure: float = 0.0
     contrast: float = 0.0
     highlights: float = 0.0
@@ -177,16 +193,28 @@ def _apply_global(img: np.ndarray, params: LocalParams) -> np.ndarray:
     # WB
     if abs(params.temp_shift) > 1e-3 or abs(params.tint_shift) > 1e-3:
         from .tone import temperature_tint
+
         out = temperature_tint(
-            out, temp_shift=params.temp_shift, tint_shift=params.tint_shift,
+            out,
+            temp_shift=params.temp_shift,
+            tint_shift=params.tint_shift,
         )
 
     # Tone curve
-    needs_tone = any(abs(getattr(params, k)) > 1e-3 for k in (
-        "exposure", "contrast", "highlights", "shadows", "whites", "blacks",
-    ))
+    needs_tone = any(
+        abs(getattr(params, k)) > 1e-3
+        for k in (
+            "exposure",
+            "contrast",
+            "highlights",
+            "shadows",
+            "whites",
+            "blacks",
+        )
+    )
     if needs_tone:
         from .tone import ToneParams, parametric_tone
+
         tp = ToneParams(
             exposure=params.exposure,
             contrast=params.contrast,
@@ -209,6 +237,7 @@ def _apply_global(img: np.ndarray, params: LocalParams) -> np.ndarray:
     # Clarity
     if abs(params.clarity) > 1e-3:
         from .tone import clarity
+
         out = clarity(out, amount=params.clarity)
 
     # Sharpness
@@ -228,12 +257,14 @@ def _apply_global(img: np.ndarray, params: LocalParams) -> np.ndarray:
 # Pre-built common adjustments
 # =====================================================================
 
+
 def vignette(
-    img: np.ndarray, *,
-    amount: float = -0.3,           # -1..0 dark vignette / 0..1 bright
-    midpoint: float = 0.5,           # 0..1 size of vignette
-    feather: float = 0.5,            # 0..1 edge softness
-    roundness: float = 0.0,          # -1 (oval H) .. +1 (oval V), 0 = circle
+    img: np.ndarray,
+    *,
+    amount: float = -0.3,  # -1..0 dark vignette / 0..1 bright
+    midpoint: float = 0.5,  # 0..1 size of vignette
+    feather: float = 0.5,  # 0..1 edge softness
+    roundness: float = 0.0,  # -1 (oval H) .. +1 (oval V), 0 = circle
 ) -> np.ndarray:
     """Lightroom Effects → Vignette."""
     h, w = img.shape[:2]
@@ -244,15 +275,20 @@ def vignette(
     elif roundness < 0:
         rx_frac *= 1.0 + roundness * 0.3
     mask = radial_mask(
-        h, w, rx_frac=rx_frac, ry_frac=ry_frac,
-        feather=feather, inverted=True,  # rìa = 1
+        h,
+        w,
+        rx_frac=rx_frac,
+        ry_frac=ry_frac,
+        feather=feather,
+        inverted=True,  # rìa = 1
     )
     params = LocalParams(exposure=amount * 1.0, contrast=amount * 0.3)
     return apply_local(img, mask, params)
 
 
 def darken_sky_grad(
-    img: np.ndarray, *,
+    img: np.ndarray,
+    *,
     horizon_y_frac: float = 0.45,
     amount: float = -0.4,
     feather: float = 0.4,
@@ -261,9 +297,12 @@ def darken_sky_grad(
     """Graduated filter darkens sky above horizon."""
     h, w = img.shape[:2]
     mask = graduated_mask(
-        h, w,
-        x0_frac=0.5, y0_frac=horizon_y_frac - feather * 0.3,
-        x1_frac=0.5, y1_frac=horizon_y_frac + feather * 0.3,
+        h,
+        w,
+        x0_frac=0.5,
+        y0_frac=horizon_y_frac - feather * 0.3,
+        x1_frac=0.5,
+        y1_frac=horizon_y_frac + feather * 0.3,
         feather=feather,
     )
     params = LocalParams(
@@ -275,7 +314,8 @@ def darken_sky_grad(
 
 
 def brighten_foreground_grad(
-    img: np.ndarray, *,
+    img: np.ndarray,
+    *,
     horizon_y_frac: float = 0.55,
     amount: float = 0.25,
     feather: float = 0.4,
@@ -283,9 +323,12 @@ def brighten_foreground_grad(
     """Inverse graduated — brighten dưới horizon."""
     h, w = img.shape[:2]
     mask = graduated_mask(
-        h, w,
-        x0_frac=0.5, y0_frac=horizon_y_frac + feather * 0.3,
-        x1_frac=0.5, y1_frac=horizon_y_frac - feather * 0.3,
+        h,
+        w,
+        x0_frac=0.5,
+        y0_frac=horizon_y_frac + feather * 0.3,
+        x1_frac=0.5,
+        y1_frac=horizon_y_frac - feather * 0.3,
         feather=feather,
     )
     params = LocalParams(exposure=amount, shadows=amount * 0.6)

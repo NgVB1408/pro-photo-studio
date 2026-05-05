@@ -51,7 +51,7 @@ def _resize_output(bgr: np.ndarray, label: str) -> np.ndarray:
     if longest <= target:
         return bgr  # đã nhỏ hơn hoặc bằng target → không upscale
     scale = target / longest
-    new_w, new_h = int(round(w * scale)), int(round(h * scale))
+    new_w, new_h = round(w * scale), round(h * scale)
     return cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
 
 
@@ -77,19 +77,30 @@ def _maybe_downscale(bgr: np.ndarray, mask_layer: np.ndarray | None):
     new_w, new_h = int(w * scale), int(h * scale)
     logger.warning(
         "Ảnh %dx%d quá to (>%d) — auto-resize xuống %dx%d (scale=%.3f) cho UI nhanh.",
-        w, h, MAX_DIMENSION, new_w, new_h, scale,
+        w,
+        h,
+        MAX_DIMENSION,
+        new_w,
+        new_h,
+        scale,
     )
     bgr_small = cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
     mask_small = None
     if mask_layer is not None:
         mask_small = cv2.resize(
-            mask_layer, (new_w, new_h), interpolation=cv2.INTER_NEAREST,
+            mask_layer,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST,
         )
     return bgr_small, mask_small, scale
 
 
 def _process(
-    image_dict, backend: str, dilate_iters: int, hd_strategy: str, lama_model: str,
+    image_dict,
+    backend: str,
+    dilate_iters: int,
+    hd_strategy: str,
+    lama_model: str,
     output_size: str = "Giữ nguyên (chất lượng tối đa)",
     progress=None,
 ):
@@ -130,7 +141,9 @@ def _process(
         if progress is not None:
             progress(0.35, desc="Tự phát hiện watermark (chưa vẽ mask)")
         logger.info(
-            "[ui] Chạy auto-detect (strategy=logo) trên %dx%d ...", w, h,
+            "[ui] Chạy auto-detect (strategy=logo) trên %dx%d ...",
+            w,
+            h,
         )
         user_mask = auto_mask(bgr, strategy="logo", dilate_iters=0)
         used_auto = True
@@ -159,7 +172,8 @@ def _process(
     t_inpaint = time.perf_counter()
     try:
         result_bgr = inpaint(
-            bgr, final_mask,
+            bgr,
+            final_mask,
             backend=InpaintBackend(backend),
             opencv_method=settings.opencv_method,
             opencv_radius=settings.opencv_radius,
@@ -167,7 +181,7 @@ def _process(
             lama_model=lama_model,
             hd_strategy=hd_strategy,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return None, f"❌ Lỗi inpaint: {type(exc).__name__}: {exc}"
     inpaint_dt = time.perf_counter() - t_inpaint
 
@@ -181,9 +195,7 @@ def _process(
     coverage = float((final_mask > 0).sum()) / final_mask.size * 100
     extra = ""
     if scale < 1.0:
-        extra = (
-            f"  | Tự resize từ {w0}×{h0} → {w}×{h} cho hiệu năng UI"
-        )
+        extra = f"  | Tự resize từ {w0}×{h0} → {w}×{h} cho hiệu năng UI"
     info = (
         f"Engine: {backend} ({inpaint_dt:.2f}s) | "
         f"Mask: {coverage:.2f}% ({'tự động' if used_auto else 'vẽ tay'}) | "
@@ -198,6 +210,7 @@ def _is_lama_available() -> bool:
     """Probe nhanh: iopaint có thể import được không."""
     try:
         import iopaint  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -611,21 +624,24 @@ def build_ui():
     try:
         import gradio as gr  # type: ignore
     except ImportError as exc:
-        raise RuntimeError(
-            "Web UI cần gradio. Cài: pip install 'gradio>=4.0'"
-        ) from exc
+        raise RuntimeError("Web UI cần gradio. Cài: pip install 'gradio>=4.0'") from exc
 
     lama_ok = _is_lama_available()
     backend_choices = ["opencv", "lama"] if lama_ok else ["opencv"]
-    lama_note = "" if lama_ok else (
-        "\n\n> ⚠ Engine **LaMa** chưa khả dụng (chưa cài `iopaint` + `torch`). "
-        "Dùng **opencv** — đủ cho 99% trường hợp watermark."
+    lama_note = (
+        ""
+        if lama_ok
+        else (
+            "\n\n> ⚠ Engine **LaMa** chưa khả dụng (chưa cài `iopaint` + `torch`). "
+            "Dùng **opencv** — đủ cho 99% trường hợp watermark."
+        )
     )
 
     # Gradio 6.x cảnh báo theme/css nên pass qua launch(), nhưng vẫn nhận
     # ở Blocks() (deprecation, không phải error). Suppress warning để console
     # sạch. Khi Gradio thực sự xoá API thì TypeError sẽ trigger fallback.
     import warnings
+
     blocks_kwargs = {
         "title": "Watermark Toolkit — Bộ công cụ ảnh chuyên nghiệp",
     }
@@ -716,7 +732,7 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                     "   - **Tự động**: bỏ trống mask, tool tự phát hiện logo ở 4 góc\n"
                     "   - **Vẽ tay**: chọn brush đỏ, kéo chuột lên vùng có logo\n"
                     "3. Bấm **🪄 Xoá watermark**\n\n"
-                    "**Mẹo:** Tăng \"Số lần phồng mask\" (5–8) nếu logo có viền mờ/shadow."
+                    '**Mẹo:** Tăng "Số lần phồng mask" (5–8) nếu logo có viền mờ/shadow.'
                 )
             with gr.Row():
                 with gr.Column():
@@ -733,20 +749,29 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         eraser=gr.Eraser(default_size=40),
                     )
                     backend_dd = gr.Dropdown(
-                        backend_choices, value="opencv", label="Engine xử lý",
+                        backend_choices,
+                        value="opencv",
+                        label="Engine xử lý",
                         info="opencv: nhanh CPU, đủ 99% case. lama: chất lượng cao nhất (cần torch).",
                     )
                     lama_model_dd = gr.Dropdown(
                         ["lama", "mat", "migan", "zits", "fcf"],
-                        value="lama", label="Mô hình LaMa", visible=False,
+                        value="lama",
+                        label="Mô hình LaMa",
+                        visible=False,
                     )
                     hd_strategy_dd = gr.Dropdown(
-                        ["crop", "resize", "original"], value="crop",
+                        ["crop", "resize", "original"],
+                        value="crop",
                         label="Chiến lược ảnh HD",
                         info="crop = chỉ inpaint quanh mask (giữ chi tiết, tiết kiệm RAM).",
                     )
                     dilate_sl = gr.Slider(
-                        0, 20, value=3, step=1, label="Số lần phồng mask",
+                        0,
+                        20,
+                        value=3,
+                        step=1,
+                        label="Số lần phồng mask",
                         info="Mở rộng vùng quanh logo. Tăng nếu logo có viền soft.",
                     )
                     output_size_dd = gr.Dropdown(
@@ -765,25 +790,39 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
 
             backend_dd.change(
                 _toggle_lama_dropdown,
-                inputs=[backend_dd], outputs=[lama_model_dd],
+                inputs=[backend_dd],
+                outputs=[lama_model_dd],
             )
 
             def _process_handler(
-                image_dict, backend, dilate_iters, hd_strategy, lama_model,
+                image_dict,
+                backend,
+                dilate_iters,
+                hd_strategy,
+                lama_model,
                 output_size,
                 progress=gr.Progress(),
             ):
                 return _process(
-                    image_dict, backend, dilate_iters, hd_strategy, lama_model,
+                    image_dict,
+                    backend,
+                    dilate_iters,
+                    hd_strategy,
+                    lama_model,
                     output_size=output_size,
                     progress=progress,
                 )
+
             _process_handler.__name__ = "_process"
 
             run_btn.click(
                 _process_handler,
                 inputs=[
-                    editor, backend_dd, dilate_sl, hd_strategy_dd, lama_model_dd,
+                    editor,
+                    backend_dd,
+                    dilate_sl,
+                    hd_strategy_dd,
+                    lama_model_dd,
                     output_size_dd,
                 ],
                 outputs=[out_image, info_box],
@@ -825,12 +864,19 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         label="Tự căn chỉnh bằng ORB (bật nếu 2 ảnh hơi lệch)",
                     )
                     threshold_sl = gr.Slider(
-                        5, 50, value=15, step=1,
+                        5,
+                        50,
+                        value=15,
+                        step=1,
                         label="Ngưỡng khác biệt (15 = bắt cả watermark mờ)",
                         info="Pixel diff ≥ ngưỡng được coi là watermark.",
                     )
                     feather_sl = gr.Slider(
-                        0, 15, value=3, step=1, label="Làm mềm rìa mask (px)",
+                        0,
+                        15,
+                        value=3,
+                        step=1,
+                        label="Làm mềm rìa mask (px)",
                     )
                     composite_size_dd = gr.Dropdown(
                         _OUTPUT_SIZE_LABELS,
@@ -839,35 +885,44 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         info="Chỉ thu nhỏ — không upscale.",
                     )
                     composite_btn = gr.Button(
-                        "🪄 Ghép từ ảnh gốc", variant="primary",
+                        "🪄 Ghép từ ảnh gốc",
+                        variant="primary",
                     )
                 with gr.Column():
                     composite_out = gr.Image(label="Ảnh kết quả", type="numpy")
                     composite_info = gr.Textbox(label="Thông tin xử lý", interactive=False)
 
             def _composite_handler(
-                original_path, watermarked_path, do_align, threshold, feather,
+                original_path,
+                watermarked_path,
+                do_align,
+                threshold,
+                feather,
                 output_size,
                 progress=gr.Progress(),
             ):
                 if not original_path or not watermarked_path:
                     return None, "⚠ Cần tải lên cả 2 ảnh (gốc và có logo)."
                 progress(0.1, desc="Đang đọc 2 ảnh")
+                import tempfile
+
                 from .composite import composite_from_original
                 from .utils import read_image, write_image
-                import tempfile
+
                 tmp = Path(tempfile.gettempdir()) / "wm_composite_out.jpg"
                 progress(0.4, desc="So sánh + căn chỉnh + Poisson blend")
                 try:
                     report = composite_from_original(
-                        original_path, watermarked_path, tmp,
+                        original_path,
+                        watermarked_path,
+                        tmp,
                         align=do_align,
                         diff_threshold=int(threshold),
                         feather_px=int(feather),
                         quality=OUTPUT_JPEG_QUALITY,
                         keep_exif=False,
                     )
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     return None, f"❌ Lỗi: {type(exc).__name__}: {exc}"
                 progress(0.9, desc="Đang resize đầu ra")
                 result = read_image(tmp)
@@ -886,7 +941,11 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             composite_btn.click(
                 _composite_handler,
                 inputs=[
-                    img_original, img_watermarked, align_cb, threshold_sl, feather_sl,
+                    img_original,
+                    img_watermarked,
+                    align_cb,
+                    threshold_sl,
+                    feather_sl,
                     composite_size_dd,
                 ],
                 outputs=[composite_out, composite_info],
@@ -910,8 +969,8 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                     "3. Khách trả tiền → bạn cần xoá watermark khỏi 100 ảnh\n\n"
                     "**Cách dùng:**\n"
                     "1. Mở Windows Explorer, kéo TẤT CẢ ảnh trong `originals/` "
-                    "vào ô \"Thư mục ảnh GỐC\"\n"
-                    "2. Tương tự cho `previews/` vào ô \"Thư mục ảnh CÓ logo\"\n"
+                    'vào ô "Thư mục ảnh GỐC"\n'
+                    '2. Tương tự cho `previews/` vào ô "Thư mục ảnh CÓ logo"\n'
                     "3. Bấm **📦 Xử lý hàng loạt**\n"
                     "4. Tải file zip về, giải nén → 100 ảnh sạch\n\n"
                     "**Tốc độ:** ~0.2s/cặp ảnh 4K, ~0.3s/cặp ảnh 6K. "
@@ -930,7 +989,11 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         file_types=["image"],
                     )
                     batch_threshold = gr.Slider(
-                        5, 50, value=15, step=1, label="Ngưỡng khác biệt",
+                        5,
+                        50,
+                        value=15,
+                        step=1,
+                        label="Ngưỡng khác biệt",
                     )
                     batch_align = gr.Checkbox(value=True, label="Tự căn chỉnh ORB")
                     batch_size_dd = gr.Dropdown(
@@ -943,11 +1006,17 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 with gr.Column():
                     batch_zip = gr.File(label="Kết quả (file zip)", interactive=False)
                     batch_log = gr.Textbox(
-                        label="Nhật ký xử lý", lines=12, interactive=False,
+                        label="Nhật ký xử lý",
+                        lines=12,
+                        interactive=False,
                     )
 
             def _batch_handler(
-                originals, watermarkeds, threshold, do_align, output_size,
+                originals,
+                watermarkeds,
+                threshold,
+                do_align,
+                output_size,
                 progress=gr.Progress(),
             ):
                 if not originals or not watermarkeds:
@@ -963,15 +1032,18 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         f"thư mục có logo: {len(wm_map)} ảnh."
                     )
 
-                import tempfile, zipfile
+                import tempfile
+                import zipfile
+
                 from .composite import composite_from_original
                 from .utils import read_image, write_image
+
                 tmp_dir = Path(tempfile.mkdtemp(prefix="wm_batch_"))
                 logs = [f"Ghép được {len(common)} cặp ảnh:"]
                 ok, fail = 0, 0
                 t0 = time.perf_counter()
                 for i, key in enumerate(common):
-                    progress(i / len(common), desc=f"[{i+1}/{len(common)}] {key}")
+                    progress(i / len(common), desc=f"[{i + 1}/{len(common)}] {key}")
                     out_name = Path(wm_map[key]).name
                     out_path = tmp_dir / out_name
                     try:
@@ -991,10 +1063,9 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                             write_image(out_path, img_out, quality=OUTPUT_JPEG_QUALITY)
                         ok += 1
                         logs.append(
-                            f"  ✓ {key}: {report.diff_pixels}px "
-                            f"({report.mask_coverage_pct}%)"
+                            f"  ✓ {key}: {report.diff_pixels}px ({report.mask_coverage_pct}%)"
                         )
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         fail += 1
                         logs.append(f"  ✗ {key}: {type(exc).__name__}: {exc}")
 
@@ -1002,7 +1073,10 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 progress(0.95, desc="Đang đóng gói file zip")
                 zip_path = tmp_dir / "ket_qua.zip"
                 with zipfile.ZipFile(
-                    zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6,
+                    zip_path,
+                    "w",
+                    zipfile.ZIP_DEFLATED,
+                    compresslevel=6,
                 ) as zf:
                     for f in tmp_dir.iterdir():
                         if f.suffix.lower() != ".zip":
@@ -1018,7 +1092,10 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             batch_btn.click(
                 _batch_handler,
                 inputs=[
-                    files_orig, files_wm, batch_threshold, batch_align,
+                    files_orig,
+                    files_wm,
+                    batch_threshold,
+                    batch_align,
                     batch_size_dd,
                 ],
                 outputs=[batch_zip, batch_log],
@@ -1038,7 +1115,7 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 gr.Markdown(
                     "**Quy trình:**\n"
                     "1. Chọn nhiều ảnh có logo (kéo thả từ Explorer)\n"
-                    "2. Chỉnh \"Số lần phồng mask\" (3 = vừa đủ, 5–8 cho logo có viền soft)\n"
+                    '2. Chỉnh "Số lần phồng mask" (3 = vừa đủ, 5–8 cho logo có viền soft)\n'
                     "3. Chọn phương pháp inpaint:\n"
                     "   - `telea`: nhanh, mịn (mặc định)\n"
                     "   - `ns`: Navier-Stokes, sắc nét hơn ở edge\n"
@@ -1055,10 +1132,15 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         file_types=["image"],
                     )
                     bi_dilate = gr.Slider(
-                        0, 15, value=3, step=1, label="Số lần phồng mask",
+                        0,
+                        15,
+                        value=3,
+                        step=1,
+                        label="Số lần phồng mask",
                     )
                     bi_method = gr.Dropdown(
-                        ["telea", "ns"], value="telea",
+                        ["telea", "ns"],
+                        value="telea",
                         label="Phương pháp inpaint (OpenCV)",
                         info="telea: nhanh, mịn. ns: Navier-Stokes, sắc nét hơn ở edge.",
                     )
@@ -1071,18 +1153,26 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 with gr.Column():
                     bi_zip = gr.File(label="Kết quả (file zip)", interactive=False)
                     bi_log = gr.Textbox(
-                        label="Nhật ký xử lý", lines=12, interactive=False,
+                        label="Nhật ký xử lý",
+                        lines=12,
+                        interactive=False,
                     )
 
             def _batch_inpaint_handler(
-                files, dilate_iters, method, output_size,
+                files,
+                dilate_iters,
+                method,
+                output_size,
                 progress=gr.Progress(),
             ):
                 if not files:
                     return None, "⚠ Cần tải lên ít nhất 1 ảnh."
-                import tempfile, zipfile
+                import tempfile
+                import zipfile
+
                 from .detect import auto_mask
-                from .inpaint import InpaintBackend, inpaint as inp
+                from .inpaint import InpaintBackend
+                from .inpaint import inpaint as inp
                 from .utils import read_image, write_image
 
                 tmp_dir = Path(tempfile.mkdtemp(prefix="wm_batch_inp_"))
@@ -1093,7 +1183,7 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 for i, fp in enumerate(files):
                     progress(
                         i / len(files),
-                        desc=f"[{i+1}/{len(files)}] {Path(fp).name}",
+                        desc=f"[{i + 1}/{len(files)}] {Path(fp).name}",
                     )
                     try:
                         img = read_image(fp)
@@ -1101,49 +1191,54 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         if max(h, w) > MAX_DIMENSION:
                             scale = MAX_DIMENSION / max(h, w)
                             img = cv2.resize(
-                                img, (int(w * scale), int(h * scale)),
+                                img,
+                                (int(w * scale), int(h * scale)),
                                 interpolation=cv2.INTER_AREA,
                             )
                         mask = auto_mask(
-                            img, strategy="logo", dilate_iters=int(dilate_iters),
+                            img,
+                            strategy="logo",
+                            dilate_iters=int(dilate_iters),
                         )
                         coverage = float((mask > 0).sum()) / mask.size * 100
                         if mask.sum() == 0:
-                            logs.append(
-                                f"  ⊘ {Path(fp).name}: không phát hiện được logo"
-                            )
+                            logs.append(f"  ⊘ {Path(fp).name}: không phát hiện được logo")
                             # Vẫn copy ảnh gốc (resize nếu user chọn) để khách
                             # có đủ file đầu ra
                             out_img = _resize_output(img, output_size)
                             write_image(
-                                tmp_dir / Path(fp).name, out_img,
+                                tmp_dir / Path(fp).name,
+                                out_img,
                                 quality=OUTPUT_JPEG_QUALITY,
                             )
                             miss += 1
                             continue
                         result = inp(
-                            img, mask,
+                            img,
+                            mask,
                             backend=InpaintBackend.OPENCV,
                             opencv_method=method,
                             opencv_radius=5,
                         )
                         result = _resize_output(result, output_size)
                         write_image(
-                            tmp_dir / Path(fp).name, result,
+                            tmp_dir / Path(fp).name,
+                            result,
                             quality=OUTPUT_JPEG_QUALITY,
                         )
                         logs.append(f"  ✓ {Path(fp).name}: phủ {coverage:.2f}% diện tích")
                         ok += 1
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         miss += 1
-                        logs.append(
-                            f"  ✗ {Path(fp).name}: {type(exc).__name__}: {exc}"
-                        )
+                        logs.append(f"  ✗ {Path(fp).name}: {type(exc).__name__}: {exc}")
 
                 progress(0.97, desc="Đang đóng gói file zip")
                 zip_path = tmp_dir / "ket_qua.zip"
                 with zipfile.ZipFile(
-                    zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6,
+                    zip_path,
+                    "w",
+                    zipfile.ZIP_DEFLATED,
+                    compresslevel=6,
                 ) as zf:
                     for f in tmp_dir.iterdir():
                         if f.suffix.lower() != ".zip":
@@ -1175,7 +1270,7 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                     "**Cách dùng:**\n"
                     "1. Tải ảnh thô\n"
                     "2. Chọn preset phù hợp (xem bảng dưới)\n"
-                    "3. (Tuỳ chọn) Mở \"Tinh chỉnh thông số\" để chỉnh slider\n"
+                    '3. (Tuỳ chọn) Mở "Tinh chỉnh thông số" để chỉnh slider\n'
                     "4. Bấm **✨ Cải thiện ảnh**\n\n"
                     "**Khi nào dùng preset nào:**\n\n"
                     "| Preset | Phù hợp | Đặc điểm |\n"
@@ -1190,7 +1285,8 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             with gr.Row():
                 with gr.Column():
                     enh_input = gr.Image(
-                        label="Ảnh thô (raw)", type="filepath",
+                        label="Ảnh thô (raw)",
+                        type="filepath",
                     )
                     enh_preset = gr.Dropdown(
                         ["studio", "real_estate", "portrait", "product", "outdoor"],
@@ -1204,27 +1300,45 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                     )
                     with gr.Accordion("⚙ Tinh chỉnh thông số (nâng cao)", open=False):
                         enh_clahe = gr.Slider(
-                            0, 4, value=1.8, step=0.1,
+                            0,
+                            4,
+                            value=1.8,
+                            step=0.1,
                             label="CLAHE clip (tăng tương phản local)",
                         )
                         enh_highlight = gr.Slider(
-                            0, 1, value=0.4, step=0.05,
+                            0,
+                            1,
+                            value=0.4,
+                            step=0.05,
                             label="Cứu vùng cháy (highlight recovery)",
                         )
                         enh_shadow = gr.Slider(
-                            0, 1, value=0.35, step=0.05,
+                            0,
+                            1,
+                            value=0.35,
+                            step=0.05,
                             label="Nâng vùng tối (shadow lift)",
                         )
                         enh_vibrance = gr.Slider(
-                            0, 1, value=0.25, step=0.05,
+                            0,
+                            1,
+                            value=0.25,
+                            step=0.05,
                             label="Tăng độ tươi (vibrance, giữ tone da)",
                         )
                         enh_sharpen = gr.Slider(
-                            0, 1, value=0.5, step=0.05,
+                            0,
+                            1,
+                            value=0.5,
+                            step=0.05,
                             label="Làm nét (sharpen)",
                         )
                         enh_gamma = gr.Slider(
-                            0.5, 1.5, value=0.95, step=0.05,
+                            0.5,
+                            1.5,
+                            value=0.95,
+                            step=0.05,
                             label="Gamma (<1 sáng hơn, >1 tối hơn)",
                         )
                     enh_size_dd = gr.Dropdown(
@@ -1239,25 +1353,34 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                     enh_info = gr.Textbox(label="Thông tin xử lý", interactive=False)
 
             def _enhance_handler(
-                input_path, preset_name, clahe, highlight, shadow, vibrance_v,
-                sharpen, gamma, output_size,
+                input_path,
+                preset_name,
+                clahe,
+                highlight,
+                shadow,
+                vibrance_v,
+                sharpen,
+                gamma,
+                output_size,
                 progress=gr.Progress(),
             ):
                 if not input_path:
                     return None, "⚠ Hãy tải lên ảnh."
                 progress(0.1, desc="Đang đọc ảnh")
-                from .enhance import enhance, enhance_studio, EnhanceParams, PRESETS
+                from .enhance import PRESETS, EnhanceParams, enhance, enhance_studio
                 from .utils import read_image
+
                 try:
                     img = read_image(input_path)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     return None, f"❌ Không đọc được ảnh: {exc}"
 
                 h, w = img.shape[:2]
                 if max(h, w) > MAX_DIMENSION:
                     scale = MAX_DIMENSION / max(h, w)
                     img = cv2.resize(
-                        img, (int(w * scale), int(h * scale)),
+                        img,
+                        (int(w * scale), int(h * scale)),
                         interpolation=cv2.INTER_AREA,
                     )
 
@@ -1300,9 +1423,14 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             enh_btn.click(
                 _enhance_handler,
                 inputs=[
-                    enh_input, enh_preset,
-                    enh_clahe, enh_highlight, enh_shadow,
-                    enh_vibrance, enh_sharpen, enh_gamma,
+                    enh_input,
+                    enh_preset,
+                    enh_clahe,
+                    enh_highlight,
+                    enh_shadow,
+                    enh_vibrance,
+                    enh_sharpen,
+                    enh_gamma,
                     enh_size_dd,
                 ],
                 outputs=[enh_out, enh_info],
@@ -1335,7 +1463,8 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 with gr.Column():
                     be_files = gr.Files(
                         label="Ảnh thô (chọn nhiều file)",
-                        file_count="multiple", file_types=["image"],
+                        file_count="multiple",
+                        file_types=["image"],
                     )
                     be_preset = gr.Dropdown(
                         ["studio", "real_estate", "portrait", "product", "outdoor"],
@@ -1352,16 +1481,22 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 with gr.Column():
                     be_zip = gr.File(label="Kết quả (file zip)", interactive=False)
                     be_log = gr.Textbox(
-                        label="Nhật ký xử lý", lines=12, interactive=False,
+                        label="Nhật ký xử lý",
+                        lines=12,
+                        interactive=False,
                     )
 
             def _batch_enhance_handler(
-                files, preset_name, output_size,
+                files,
+                preset_name,
+                output_size,
                 progress=gr.Progress(),
             ):
                 if not files:
                     return None, "⚠ Cần tải lên ảnh."
-                import tempfile, zipfile
+                import tempfile
+                import zipfile
+
                 from .enhance import enhance_preset
                 from .utils import read_image, write_image
 
@@ -1373,7 +1508,7 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 for i, fp in enumerate(files):
                     progress(
                         i / len(files),
-                        desc=f"[{i+1}/{len(files)}] {Path(fp).name}",
+                        desc=f"[{i + 1}/{len(files)}] {Path(fp).name}",
                     )
                     try:
                         img = read_image(fp)
@@ -1381,27 +1516,30 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         if max(h, w) > MAX_DIMENSION:
                             scale = MAX_DIMENSION / max(h, w)
                             img = cv2.resize(
-                                img, (int(w * scale), int(h * scale)),
+                                img,
+                                (int(w * scale), int(h * scale)),
                                 interpolation=cv2.INTER_AREA,
                             )
                         result = enhance_preset(img, preset_name)
                         result = _resize_output(result, output_size)
                         write_image(
-                            tmp_dir / Path(fp).name, result,
+                            tmp_dir / Path(fp).name,
+                            result,
                             quality=OUTPUT_JPEG_QUALITY,
                         )
                         ok += 1
                         logs.append(f"  ✓ {Path(fp).name}")
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         fail += 1
-                        logs.append(
-                            f"  ✗ {Path(fp).name}: {type(exc).__name__}: {exc}"
-                        )
+                        logs.append(f"  ✗ {Path(fp).name}: {type(exc).__name__}: {exc}")
 
                 progress(0.97, desc="Đang đóng gói file zip")
                 zip_path = tmp_dir / "anh_da_cai_thien.zip"
                 with zipfile.ZipFile(
-                    zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6,
+                    zip_path,
+                    "w",
+                    zipfile.ZIP_DEFLATED,
+                    compresslevel=6,
                 ) as zf:
                     for f in tmp_dir.iterdir():
                         if f.suffix.lower() != ".zip":
@@ -1460,35 +1598,43 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             with gr.Row():
                 with gr.Column(scale=1):
                     re_input = gr.Image(
-                        type="numpy", label="Ảnh thô (raw)",
-                        image_mode="RGB", height=320,
+                        type="numpy",
+                        label="Ảnh thô (raw)",
+                        image_mode="RGB",
+                        height=320,
                     )
                     with gr.Row():
                         re_sky_preset = gr.Dropdown(
                             choices=[
-                                "blue_clouds", "blue_clear", "golden_hour",
-                                "sunset_warm", "dramatic_storm",
-                                "overcast_soft", "twilight_blue",
+                                "blue_clouds",
+                                "blue_clear",
+                                "golden_hour",
+                                "sunset_warm",
+                                "dramatic_storm",
+                                "overcast_soft",
+                                "twilight_blue",
                             ],
-                            value="blue_clouds", label="Kiểu trời",
+                            value="blue_clouds",
+                            label="Kiểu trời",
                             info="blue_clouds: xanh có mây (phổ biến). "
-                                 "golden_hour: vàng dramatic. "
-                                 "sunset_warm: hoàng hôn cam. "
-                                 "dramatic_storm: mây đen luxury. "
-                                 "twilight_blue: chạng vạng xanh tím.",
+                            "golden_hour: vàng dramatic. "
+                            "sunset_warm: hoàng hôn cam. "
+                            "dramatic_storm: mây đen luxury. "
+                            "twilight_blue: chạng vạng xanh tím.",
                         )
                         re_sky_source = gr.Dropdown(
                             choices=["auto", "real_photo", "procedural"],
                             value="auto",
                             label="Nguồn trời",
                             info="auto: dùng ảnh thật nếu có, fallback procedural. "
-                                 "real_photo: bắt buộc dùng ảnh thật từ library. "
-                                 "procedural: tạo trời tổng hợp Perlin clouds.",
+                            "real_photo: bắt buộc dùng ảnh thật từ library. "
+                            "procedural: tạo trời tổng hợp Perlin clouds.",
                         )
                         re_sky_image = gr.Image(
                             type="numpy",
                             label="Ảnh trời tự upload (override hết)",
-                            image_mode="RGB", height=120,
+                            image_mode="RGB",
+                            height=120,
                         )
                     with gr.Row():
                         re_enable_sky = gr.Checkbox(value=True, label="Thay trời")
@@ -1497,15 +1643,24 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         re_enable_vertical = gr.Checkbox(value=True, label="Kéo thẳng dọc")
                     with gr.Row():
                         re_sky_blend = gr.Slider(
-                            0.3, 1.0, 0.85, step=0.05,
+                            0.3,
+                            1.0,
+                            0.85,
+                            step=0.05,
                             label="Mức trộn trời (blend)",
                         )
                         re_window_strength = gr.Slider(
-                            0.2, 1.0, 0.7, step=0.05,
+                            0.2,
+                            1.0,
+                            0.7,
+                            step=0.05,
                             label="Cường độ kéo cửa sổ",
                         )
                         re_lawn_boost = gr.Slider(
-                            0.0, 1.0, 0.5, step=0.05,
+                            0.0,
+                            1.0,
+                            0.5,
+                            step=0.05,
                             label="Độ tươi cỏ",
                         )
                     re_size_dd = gr.Dropdown(
@@ -1543,14 +1698,26 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                     re_report = gr.Textbox(label="Báo cáo phân tích cảnh", lines=8)
 
             def _realestate_handler(
-                img_rgb, sky_preset, sky_source, sky_rgb,
-                en_sky, en_win, en_lawn, en_vert,
-                sky_blend, win_strength, lawn_boost,
-                output_size, brackets_files,
+                img_rgb,
+                sky_preset,
+                sky_source,
+                sky_rgb,
+                en_sky,
+                en_win,
+                en_lawn,
+                en_vert,
+                sky_blend,
+                win_strength,
+                lawn_boost,
+                output_size,
+                brackets_files,
             ):
                 from .realestate import (
-                    enhance_realestate_full, replace_sky, window_pull,
-                    correct_vertical, classify_scene,
+                    classify_scene,
+                    correct_vertical,
+                    enhance_realestate_full,
+                    replace_sky,
+                    window_pull,
                 )
                 from .utils import read_image
 
@@ -1559,9 +1726,7 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 t0 = time.perf_counter()
                 bgr = _bgr_from_rgb_or_rgba(img_rgb)
                 bgr, _, scale = _maybe_downscale(bgr, None)
-                sky_bgr = (
-                    _bgr_from_rgb_or_rgba(sky_rgb) if sky_rgb is not None else None
-                )
+                sky_bgr = _bgr_from_rgb_or_rgba(sky_rgb) if sky_rgb is not None else None
                 # Load brackets nếu user upload
                 bracket_imgs: list = []
                 if brackets_files:
@@ -1571,27 +1736,34 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                             if b.shape[:2] != bgr.shape[:2]:
                                 # Resize bracket về size ảnh chính
                                 b = cv2.resize(
-                                    b, (bgr.shape[1], bgr.shape[0]),
+                                    b,
+                                    (bgr.shape[1], bgr.shape[0]),
                                     interpolation=cv2.INTER_LANCZOS4,
                                 )
                             bracket_imgs.append(b)
-                        except Exception as exc:  # noqa: BLE001
+                        except Exception as exc:
                             logger.warning("Bỏ qua bracket %s: %s", f, exc)
 
                 try:
                     # Custom pipeline để có thể truyền sky_source + brackets
                     scene = classify_scene(bgr)
                     out = bgr.copy()
-                    vert_report = type("V", (), {
-                        "angle_deg": 0.0, "line_count": 0, "rotated": False,
-                        "upright_skew": 0.0, "upright_direction": "",
-                    })()
+                    vert_report = type(
+                        "V",
+                        (),
+                        {
+                            "angle_deg": 0.0,
+                            "line_count": 0,
+                            "rotated": False,
+                            "upright_skew": 0.0,
+                            "upright_direction": "",
+                        },
+                    )()
                     if en_vert:
                         out, vert_report = correct_vertical(out, upright=True)
 
                     sky_done = False
-                    if en_sky and scene.tag in ("exterior", "aerial") and \
-                            scene.sky_ratio > 0.05:
+                    if en_sky and scene.tag in ("exterior", "aerial") and scene.sky_ratio > 0.05:
                         out, _ = replace_sky(
                             out,
                             preset=sky_preset,
@@ -1614,21 +1786,22 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
 
                     lawn_done = False
                     if en_lawn and scene.tag in ("exterior", "aerial"):
-                        out, mask_l = enhance_realestate_full.__globals__[
-                            "enhance_lawn"
-                        ](out, sat_boost=float(lawn_boost))
+                        out, mask_l = enhance_realestate_full.__globals__["enhance_lawn"](
+                            out, sat_boost=float(lawn_boost)
+                        )
                         lawn_done = mask_l.sum() > 0
 
                     # Wrap report
                     class _R:
                         pass
+
                     report = _R()
                     report.scene = scene
                     report.vertical = vert_report
                     report.sky_replaced = sky_done
                     report.windows_recovered = win_done
                     report.lawn_enhanced = lawn_done
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     logger.exception("realestate handler fail")
                     return None, f"❌ Lỗi: {type(exc).__name__}: {exc}"
                 # Resize đầu ra
@@ -1652,43 +1825,45 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 elif report.windows_recovered:
                     hdr_info = " — pseudo-HDR (single image)"
                 # Vertical info (upright vs rotate)
-                if hasattr(report.vertical, "upright_skew") and \
-                        report.vertical.upright_skew > 0:
+                if hasattr(report.vertical, "upright_skew") and report.vertical.upright_skew > 0:
                     vert_info = (
                         f"perspective warp skew={report.vertical.upright_skew:.3f} "
                         f"direction={report.vertical.upright_direction}"
                     )
                 else:
-                    vert_info = (
-                        f"rotate 2D {report.vertical.angle_deg:+.2f}°"
-                    )
+                    vert_info = f"rotate 2D {report.vertical.angle_deg:+.2f}°"
 
                 lines = [
                     f"⏱  Thời gian: {dt:.2f}s  (tỉ lệ resize: {scale:.2f})",
-                    f"🏷  Loại cảnh: {tag_vi} "
-                    f"(độ tin cậy {report.scene.confidence:.2f})",
+                    f"🏷  Loại cảnh: {tag_vi} (độ tin cậy {report.scene.confidence:.2f})",
                     f"🌤  Tỉ lệ trời: {report.scene.sky_ratio:.1%}",
                     f"🌱 Tỉ lệ cỏ: {report.scene.grass_ratio:.1%}",
                     f"💡 Độ sáng trung bình: {report.scene.avg_brightness:.2f}",
                     f"📐 Sửa nghiêng: {vert_info} "
                     f"(số đường: {report.vertical.line_count}, "
                     f"đã áp: {'✓' if report.vertical.rotated else '✗'})",
-                    f"☁️  Đã thay trời: "
-                    f"{'✓' if report.sky_replaced else '✗'}{sky_src_info}",
-                    f"🪟 Đã kéo sáng cửa sổ: "
-                    f"{'✓' if report.windows_recovered else '✗'}{hdr_info}",
-                    f"🌿 Đã tăng tươi cỏ: "
-                    f"{'✓' if report.lawn_enhanced else '✗'}",
+                    f"☁️  Đã thay trời: {'✓' if report.sky_replaced else '✗'}{sky_src_info}",
+                    f"🪟 Đã kéo sáng cửa sổ: {'✓' if report.windows_recovered else '✗'}{hdr_info}",
+                    f"🌿 Đã tăng tươi cỏ: {'✓' if report.lawn_enhanced else '✗'}",
                 ]
                 return _rgb_from_bgr(out), "\n".join(lines)
 
             re_btn.click(
                 _realestate_handler,
                 inputs=[
-                    re_input, re_sky_preset, re_sky_source, re_sky_image,
-                    re_enable_sky, re_enable_window, re_enable_lawn, re_enable_vertical,
-                    re_sky_blend, re_window_strength, re_lawn_boost,
-                    re_size_dd, re_brackets,
+                    re_input,
+                    re_sky_preset,
+                    re_sky_source,
+                    re_sky_image,
+                    re_enable_sky,
+                    re_enable_window,
+                    re_enable_lawn,
+                    re_enable_vertical,
+                    re_sky_blend,
+                    re_window_strength,
+                    re_lawn_boost,
+                    re_size_dd,
+                    re_brackets,
                 ],
                 outputs=[re_output, re_report],
                 api_name="realestate",
@@ -1697,31 +1872,30 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             # Sky library management
             def _sky_lib_status() -> str:
                 from .sky_assets import stats
+
                 s = stats()
                 lines = [
                     f"📂 **Library**: `{s['library_dir']}`",
                     f"📊 **Tổng**: {s['total_count']} ảnh",
                 ]
-                if s['by_category']:
+                if s["by_category"]:
                     lines.append("**Theo category**:")
-                    for cat, count in sorted(s['by_category'].items()):
+                    for cat, count in sorted(s["by_category"].items()):
                         lines.append(f"- {cat}: {count}")
                 else:
-                    lines.append(
-                        "*(Trống — bấm 'Tải bộ trời mẫu' hoặc copy ảnh vào folder trên)*"
-                    )
+                    lines.append("*(Trống — bấm 'Tải bộ trời mẫu' hoặc copy ảnh vào folder trên)*")
                 return "\n".join(lines)
 
             def _download_samples_handler():
                 from .sky_assets import download_samples
+
                 results = download_samples(timeout=20)
                 total = sum(results.values())
-                return _sky_lib_status() + (
-                    f"\n\n✅ Đã tải {total} ảnh trời CC0 từ Pexels."
-                )
+                return _sky_lib_status() + (f"\n\n✅ Đã tải {total} ảnh trời CC0 từ Pexels.")
 
             def _refresh_index_handler():
                 from .sky_assets import refresh_index
+
                 refresh_index()
                 return _sky_lib_status() + "\n\n🔄 Đã làm mới index."
 
@@ -1757,12 +1931,14 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
             with gr.Row():
                 with gr.Column(scale=1):
                     pd_input = gr.Image(
-                        type="filepath", label="Ảnh đầu vào",
+                        type="filepath",
+                        label="Ảnh đầu vào",
                     )
 
                     with gr.Tab("📸 Lens"):
                         pd_lens_profile = gr.Dropdown(
-                            choices=["(không áp lens correction)"] + [
+                            choices=["(không áp lens correction)"]
+                            + [
                                 f"{p['id']} — {p['name']}"
                                 for p in __import__(
                                     "pps_core.lens",
@@ -1774,7 +1950,10 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                             info="Auto-detect từ EXIF nếu chọn 'auto-exif'.",
                         )
                         pd_lens_intensity = gr.Slider(
-                            0, 1, 1.0, step=0.05,
+                            0,
+                            1,
+                            1.0,
+                            step=0.05,
                             label="Cường độ correction",
                         )
                         pd_lens_ca = gr.Checkbox(
@@ -1784,69 +1963,116 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
 
                     with gr.Tab("🌡 White Balance"):
                         pd_temp = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Temperature (-1 cool / +1 warm)",
                             info="Tương đương Kelvin slider Lightroom",
                         )
                         pd_tint = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Tint (-1 green / +1 magenta)",
                         )
 
                     with gr.Tab("🎚 Tone Curve"):
                         pd_exposure = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Exposure (±1 EV)",
                         )
                         pd_contrast = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Contrast (S-curve strength)",
                         )
                         pd_highlights = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Highlights",
                         )
                         pd_shadows = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Shadows",
                         )
                         pd_whites = gr.Slider(
-                            -1, 1, 0.0, step=0.05, label="Whites",
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
+                            label="Whites",
                         )
                         pd_blacks = gr.Slider(
-                            -1, 1, 0.0, step=0.05, label="Blacks",
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
+                            label="Blacks",
                         )
 
                     with gr.Tab("✨ Detail"):
                         pd_texture = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Texture (mid-freq detail)",
                         )
                         pd_clarity = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Clarity (local midtone contrast)",
                         )
                         pd_dehaze = gr.Slider(
-                            0, 1, 0.0, step=0.05,
+                            0,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Dehaze (atmospheric)",
                         )
 
                     with gr.Tab("🎯 Local"):
                         pd_vignette_amt = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Vignette (-1 dark rìa / +1 bright)",
                         )
                         pd_vignette_mid = gr.Slider(
-                            0, 1, 0.5, step=0.05,
+                            0,
+                            1,
+                            0.5,
+                            step=0.05,
                             label="Vignette midpoint",
                         )
                         gr.Markdown("**Graduated filter — Sky**")
                         pd_grad_y = gr.Slider(
-                            0, 1, 0.45, step=0.05,
+                            0,
+                            1,
+                            0.45,
+                            step=0.05,
                             label="Horizon position (0=top, 1=bottom)",
                         )
                         pd_grad_amt = gr.Slider(
-                            -1, 1, 0.0, step=0.05,
+                            -1,
+                            1,
+                            0.0,
+                            step=0.05,
                             label="Graduated darken amount (sky)",
                         )
 
@@ -1856,39 +2082,57 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                         label="Kích thước đầu ra",
                     )
                     pd_run_btn = gr.Button(
-                        "🎚 Process Pro Develop", variant="primary",
+                        "🎚 Process Pro Develop",
+                        variant="primary",
                     )
 
                 with gr.Column(scale=1):
                     pd_output = gr.Image(label="Kết quả", type="numpy")
                     pd_info = gr.Textbox(
-                        label="Thông tin xử lý", lines=8, interactive=False,
+                        label="Thông tin xử lý",
+                        lines=8,
+                        interactive=False,
                     )
 
             def _pro_develop_handler(
                 input_path,
-                lens_profile_str, lens_intensity, lens_ca,
-                temp, tint,
-                exposure, contrast, highlights, shadows, whites, blacks,
-                texture_amt, clarity_amt, dehaze_amt,
-                vign_amt, vign_mid, grad_y, grad_amt,
+                lens_profile_str,
+                lens_intensity,
+                lens_ca,
+                temp,
+                tint,
+                exposure,
+                contrast,
+                highlights,
+                shadows,
+                whites,
+                blacks,
+                texture_amt,
+                clarity_amt,
+                dehaze_amt,
+                vign_amt,
+                vign_mid,
+                grad_y,
+                grad_amt,
                 output_size,
                 progress=gr.Progress(),
             ):
                 if not input_path:
                     return None, "⚠ Hãy upload ảnh."
-                from .utils import read_image
                 from .lens import auto_correct_lens
-                from .tone import (
-                    ToneParams, apply_tone_full, temperature_tint,
-                )
-                from .local_adjust import vignette as vignette_fn
                 from .local_adjust import darken_sky_grad
+                from .local_adjust import vignette as vignette_fn
+                from .tone import (
+                    ToneParams,
+                    apply_tone_full,
+                    temperature_tint,
+                )
+                from .utils import read_image
 
                 progress(0.05, desc="Đọc ảnh")
                 try:
                     img = read_image(input_path)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     return None, f"❌ Không đọc được ảnh: {exc}"
 
                 # Resize quá to
@@ -1896,7 +2140,8 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 if max(h, w) > MAX_DIMENSION:
                     sc = MAX_DIMENSION / max(h, w)
                     img = cv2.resize(
-                        img, (int(w * sc), int(h * sc)),
+                        img,
+                        (int(w * sc), int(h * sc)),
                         interpolation=cv2.INTER_AREA,
                     )
 
@@ -1908,7 +2153,8 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 if lens_profile_str and not lens_profile_str.startswith("("):
                     profile_id = lens_profile_str.split(" — ")[0]
                     img, lens_info = auto_correct_lens(
-                        img, profile_id=profile_id,
+                        img,
+                        profile_id=profile_id,
                         intensity=float(lens_intensity),
                         correct_chromatic=bool(lens_ca),
                     )
@@ -1918,29 +2164,32 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 # 2. WB
                 progress(0.30, desc="White balance")
                 if abs(temp) > 1e-3 or abs(tint) > 1e-3:
-                    img = temperature_tint(img, temp_shift=float(temp),
-                                             tint_shift=float(tint))
+                    img = temperature_tint(img, temp_shift=float(temp), tint_shift=float(tint))
                     steps.append(f"🌡 WB: temp={temp:+.2f} tint={tint:+.2f}")
 
                 # 3. Tone + Detail
                 progress(0.50, desc="Tone curve + Detail")
                 tone_params = ToneParams(
-                    temp_shift=0.0, tint_shift=0.0,  # đã áp ở step 2
-                    exposure=float(exposure), contrast=float(contrast),
-                    highlights=float(highlights), shadows=float(shadows),
+                    temp_shift=0.0,
+                    tint_shift=0.0,  # đã áp ở step 2
+                    exposure=float(exposure),
+                    contrast=float(contrast),
+                    highlights=float(highlights),
+                    shadows=float(shadows),
                     lights=float(highlights) * 0.5,
                     darks=float(shadows) * 0.5,
-                    whites=float(whites), blacks=float(blacks),
-                    texture=float(texture_amt), clarity=float(clarity_amt),
+                    whites=float(whites),
+                    blacks=float(blacks),
+                    texture=float(texture_amt),
+                    clarity=float(clarity_amt),
                     dehaze=float(dehaze_amt),
                 )
                 img = apply_tone_full(img, tone_params)
-                if any(abs(v) > 1e-3 for v in (
-                        exposure, contrast, highlights, shadows,
-                        whites, blacks)):
+                if any(
+                    abs(v) > 1e-3 for v in (exposure, contrast, highlights, shadows, whites, blacks)
+                ):
                     steps.append("🎚 Tone curve áp dụng")
-                if any(abs(v) > 1e-3 for v in (
-                        texture_amt, clarity_amt, dehaze_amt)):
+                if any(abs(v) > 1e-3 for v in (texture_amt, clarity_amt, dehaze_amt)):
                     steps.append(
                         f"✨ Detail: tex={texture_amt:+.2f} "
                         f"clar={clarity_amt:+.2f} dehaze={dehaze_amt:.2f}"
@@ -1950,23 +2199,22 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 progress(0.75, desc="Local adjustments")
                 if abs(grad_amt) > 1e-3:
                     img = darken_sky_grad(
-                        img, horizon_y_frac=float(grad_y),
-                        amount=float(grad_amt), feather=0.4,
+                        img,
+                        horizon_y_frac=float(grad_y),
+                        amount=float(grad_amt),
+                        feather=0.4,
                     )
-                    steps.append(
-                        f"🎯 Graduated sky: y={grad_y:.2f} "
-                        f"amt={grad_amt:+.2f}"
-                    )
+                    steps.append(f"🎯 Graduated sky: y={grad_y:.2f} amt={grad_amt:+.2f}")
 
                 # 5. Vignette (cuối cùng theo thứ tự pro)
                 if abs(vign_amt) > 1e-3:
                     img = vignette_fn(
-                        img, amount=float(vign_amt),
-                        midpoint=float(vign_mid), feather=0.6,
+                        img,
+                        amount=float(vign_amt),
+                        midpoint=float(vign_mid),
+                        feather=0.6,
                     )
-                    steps.append(
-                        f"🎯 Vignette: amt={vign_amt:+.2f} mid={vign_mid:.2f}"
-                    )
+                    steps.append(f"🎯 Vignette: amt={vign_amt:+.2f} mid={vign_mid:.2f}")
 
                 # 6. Output resize
                 progress(0.92, desc="Resize đầu ra")
@@ -1975,13 +2223,18 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 progress(0.97, desc="Encode")
                 dt = time.perf_counter() - t0
                 info = (
-                    f"⏱ Thời gian: {dt:.2f}s\n"
-                    f"📐 Kích thước đầu ra: {img.shape[1]}×{img.shape[0]}\n"
-                    f"📋 Bước đã áp:\n"
-                ) + "\n".join(f"  {s}" for s in steps) if steps else (
-                    f"⏱ {dt:.2f}s | Kích thước: "
-                    f"{img.shape[1]}×{img.shape[0]} | "
-                    "(không có chỉnh sửa nào áp dụng)"
+                    (
+                        f"⏱ Thời gian: {dt:.2f}s\n"
+                        f"📐 Kích thước đầu ra: {img.shape[1]}×{img.shape[0]}\n"
+                        f"📋 Bước đã áp:\n"
+                    )
+                    + "\n".join(f"  {s}" for s in steps)
+                    if steps
+                    else (
+                        f"⏱ {dt:.2f}s | Kích thước: "
+                        f"{img.shape[1]}×{img.shape[0]} | "
+                        "(không có chỉnh sửa nào áp dụng)"
+                    )
                 )
                 return _rgb_from_bgr(img), info
 
@@ -1989,12 +2242,24 @@ trên máy bạn, ảnh KHÔNG gửi lên cloud. Hỗ trợ ảnh tới `8K`, gi
                 _pro_develop_handler,
                 inputs=[
                     pd_input,
-                    pd_lens_profile, pd_lens_intensity, pd_lens_ca,
-                    pd_temp, pd_tint,
-                    pd_exposure, pd_contrast, pd_highlights, pd_shadows,
-                    pd_whites, pd_blacks,
-                    pd_texture, pd_clarity, pd_dehaze,
-                    pd_vignette_amt, pd_vignette_mid, pd_grad_y, pd_grad_amt,
+                    pd_lens_profile,
+                    pd_lens_intensity,
+                    pd_lens_ca,
+                    pd_temp,
+                    pd_tint,
+                    pd_exposure,
+                    pd_contrast,
+                    pd_highlights,
+                    pd_shadows,
+                    pd_whites,
+                    pd_blacks,
+                    pd_texture,
+                    pd_clarity,
+                    pd_dehaze,
+                    pd_vignette_amt,
+                    pd_vignette_mid,
+                    pd_grad_y,
+                    pd_grad_amt,
                     pd_size_dd,
                 ],
                 outputs=[pd_output, pd_info],

@@ -11,6 +11,7 @@ Backend:
 
 Output: ảnh đã blur + report số region đã blur.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,8 +32,13 @@ class PrivacyReport:
 
 
 def _gaussian_blur_region(
-    img: np.ndarray, x: int, y: int, w: int, h: int,
-    *, kernel_scale: float = 0.4,
+    img: np.ndarray,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    *,
+    kernel_scale: float = 0.4,
 ) -> None:
     """Blur in-place 1 region. Kernel ~ tỉ lệ với region size."""
     if w <= 0 or h <= 0:
@@ -49,15 +55,24 @@ def _gaussian_blur_region(
     blurred = cv2.GaussianBlur(roi, (k, k), 0)
     # Pixelate effect (mosaic) cho blur mạnh hơn
     pix = max(8, k // 4)
-    small = cv2.resize(blurred, (max(1, roi.shape[1] // pix), max(1, roi.shape[0] // pix)),
-                       interpolation=cv2.INTER_LINEAR)
+    small = cv2.resize(
+        blurred,
+        (max(1, roi.shape[1] // pix), max(1, roi.shape[0] // pix)),
+        interpolation=cv2.INTER_LINEAR,
+    )
     pixelated = cv2.resize(small, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_NEAREST)
     img[y:y2, x:x2] = pixelated
 
 
 def _has_skin_tone(
-    img: np.ndarray, x: int, y: int, w: int, h: int,
-    *, min_ratio: float = 0.35, center_min_ratio: float = 0.55,
+    img: np.ndarray,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    *,
+    min_ratio: float = 0.35,
+    center_min_ratio: float = 0.55,
 ) -> bool:
     """Check if face bbox có ratio đủ skin-color pixels.
 
@@ -110,13 +125,16 @@ def _get_yunet_model_path() -> Path | None:
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         import urllib.request
-        req = urllib.request.Request(_YUNET_MODEL_URL, headers={"User-Agent": "watermark-toolkit/1.0"})
+
+        req = urllib.request.Request(
+            _YUNET_MODEL_URL, headers={"User-Agent": "watermark-toolkit/1.0"}
+        )
         with urllib.request.urlopen(req, timeout=60) as r:
             data = r.read()
         target.write_bytes(data)
         logger.info("Downloaded YuNet model %.0f KB", len(data) / 1024)
         return target
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("YuNet model download fail: %s — fallback Haar", exc)
         return None
 
@@ -129,8 +147,10 @@ def _yunet_detector(img_w: int, img_h: int) -> cv2.FaceDetectorYN | None:
         return None
     if _YUNET_DETECTOR is None:
         _YUNET_DETECTOR = cv2.FaceDetectorYN.create(
-            str(model_path), "", (img_w, img_h),
-            score_threshold=0.92,   # very strict — BĐS thường không có people
+            str(model_path),
+            "",
+            (img_w, img_h),
+            score_threshold=0.92,  # very strict — BĐS thường không có people
             nms_threshold=0.3,
             top_k=20,
         )
@@ -189,7 +209,7 @@ def detect_faces(img: np.ndarray, *, min_size: int = 30) -> list[tuple[int, int,
         # Belt-and-suspenders: YuNet detection vẫn check skin-tone center
         # để loại sót case wall sconce được ML detect nhầm
         verified = []
-        for (x, y, w, h) in yunet_boxes:
+        for x, y, w, h in yunet_boxes:
             if _has_skin_tone(img, x, y, w, h):
                 verified.append((x, y, w, h))
         return _merge_overlapping(verified)
@@ -206,11 +226,13 @@ def detect_faces(img: np.ndarray, *, min_size: int = 30) -> list[tuple[int, int,
 
     frontal = _haar_face_cascade()
     found = frontal.detectMultiScale(
-        gray, scaleFactor=1.1, minNeighbors=8,
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=8,
         minSize=(auto_min, auto_min),
         flags=cv2.CASCADE_SCALE_IMAGE,
     )
-    for (x, y, w, h) in found:
+    for x, y, w, h in found:
         # Aspect filter: face square-ish (0.7 < ar < 1.4)
         ar = w / max(h, 1)
         if ar < 0.7 or ar > 1.4:
@@ -226,10 +248,12 @@ def detect_faces(img: np.ndarray, *, min_size: int = 30) -> list[tuple[int, int,
         for flip in (False, True):
             g = cv2.flip(gray, 1) if flip else gray
             found = profile.detectMultiScale(
-                g, scaleFactor=1.1, minNeighbors=7,
+                g,
+                scaleFactor=1.1,
+                minNeighbors=7,
                 minSize=(auto_min, auto_min),
             )
-            for (x, y, w, h) in found:
+            for x, y, w, h in found:
                 ar = w / max(h, 1)
                 if ar < 0.7 or ar > 1.4:
                     continue
@@ -307,7 +331,7 @@ def detect_license_plates(img: np.ndarray) -> list[tuple[int, int, int, int]]:
         if cy < h * 0.5:
             continue
         # Verify có text-like contrast (variance cao trên mảnh sáng)
-        roi = img[y:y+hh, x:x+ww]
+        roi = img[y : y + hh, x : x + ww]
         gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         if gray_roi.size < 100:
             continue
@@ -334,16 +358,16 @@ def auto_privacy(
 
     if blur_faces:
         faces = detect_faces(out, min_size=min_face_size)
-        for (x, y, w, h) in faces:
+        for x, y, w, h in faces:
             # Mở rộng region 20% để cover tóc/cổ
             exp = int(min(w, h) * 0.2)
-            _gaussian_blur_region(out, x - exp, y - exp, w + 2*exp, h + 2*exp)
+            _gaussian_blur_region(out, x - exp, y - exp, w + 2 * exp, h + 2 * exp)
             report.regions.append((x, y, w, h))
         report.faces_blurred = len(faces)
 
     if blur_plates:
         plates = detect_license_plates(out)
-        for (x, y, w, h) in plates:
+        for x, y, w, h in plates:
             _gaussian_blur_region(out, x, y, w, h, kernel_scale=0.5)
             report.regions.append((x, y, w, h))
         report.plates_blurred = len(plates)

@@ -22,6 +22,7 @@ enhance không phủ:
    - Tăng micro-contrast local trên các vùng này (guided filter base/detail)
    - Avoid faces, fabric, plants
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,9 +36,9 @@ logger = logging.getLogger(__name__)
 def detect_white_wall_mask(
     img: np.ndarray,
     *,
-    v_min: int = 150,           # tường sáng
-    s_max: int = 90,             # ít saturation (không phải fabric)
-    s_max_strict: int = 60,      # vùng pure-white càng strict
+    v_min: int = 150,  # tường sáng
+    s_max: int = 90,  # ít saturation (không phải fabric)
+    s_max_strict: int = 60,  # vùng pure-white càng strict
     feather_sigma: float = 12.0,
 ) -> np.ndarray:
     """Mask 0..255 cho vùng tường/trần trắng (kể cả bị tungsten ám vàng nhẹ).
@@ -52,10 +53,10 @@ def detect_white_wall_mask(
     H, S, V = cv2.split(hsv)
 
     # Wall: bright + low sat
-    wall = (V >= v_min) & (S <= s_max)
+    wall = (v_min <= V) & (s_max >= S)
 
     # Loại đèn ấm rực (V rất cao + S còn cao = đèn vàng): wall pixel V>200 cần S≤60
-    very_bright_warm = (V >= 200) & (S > s_max_strict) & ((H <= 30) | (H >= 160))
+    very_bright_warm = (V >= 200) & (s_max_strict < S) & ((H <= 30) | (H >= 160))
     wall = wall & (~very_bright_warm)
 
     raw = wall.astype(np.uint8) * 255
@@ -173,6 +174,7 @@ def selective_wall_wb(
 # Surface clarity boost (marble / stone / wood)
 # ======================================================================
 
+
 def detect_smooth_surface_mask(
     img: np.ndarray,
     *,
@@ -189,10 +191,10 @@ def detect_smooth_surface_mask(
     - Edge density thấp (smooth surface, không phải pattern fabric/plant)
     """
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    H, S, V = cv2.split(hsv)
+    _H, S, V = cv2.split(hsv)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    color_ok = (V >= v_min) & (V <= v_max) & (S <= s_max)
+    color_ok = (v_min <= V) & (v_max >= V) & (s_max >= S)
 
     # Edge density (block-wise)
     edges = cv2.Canny(gray, 80, 180)
@@ -260,6 +262,7 @@ def boost_surface_clarity(
 # Composite indoor pipeline
 # ======================================================================
 
+
 def _measure_pristine(img: np.ndarray) -> dict:
     """Đo xem ảnh có đã pristine chưa: cast nhỏ + dynamic range OK + không cháy/bệt."""
     f = img.astype(np.float32)
@@ -280,10 +283,7 @@ def _measure_pristine(img: np.ndarray) -> dict:
     clip_low = float((gray <= 5).mean())
 
     is_pristine = (
-        cast < 0.030
-        and 130 <= dyn_range <= 250
-        and clip_high < 0.005
-        and clip_low < 0.020
+        cast < 0.030 and 130 <= dyn_range <= 250 and clip_high < 0.005 and clip_low < 0.020
     )
     return {
         "is_pristine": is_pristine,
@@ -330,9 +330,7 @@ def enhance_interior_pro(
         info["pristine_check"] = prist
         if prist["is_pristine"]:
             info["skipped"] = True
-            info["reason"] = (
-                f"pristine(cast={prist['cast']:.3f},range={prist['dyn_range']:.0f})"
-            )
+            info["reason"] = f"pristine(cast={prist['cast']:.3f},range={prist['dyn_range']:.0f})"
             return img.copy(), info
 
     # Step 1: Selective wall WB
@@ -342,12 +340,14 @@ def enhance_interior_pro(
     # Step 2: Shadow lift (toàn ảnh — wall WB đã handle warm cast separately)
     if shadow_lift_amount > 0:
         from .enhance import shadow_lift
+
         out = shadow_lift(out, amount=shadow_lift_amount)
         info["steps"].append(("shadow_lift", {"amount": shadow_lift_amount}))
 
     # Step 3: Vibrance
     if vibrance_amount > 0:
         from .enhance import vibrance
+
         out = vibrance(out, amount=vibrance_amount)
         info["steps"].append(("vibrance", {"amount": vibrance_amount}))
 
@@ -358,6 +358,7 @@ def enhance_interior_pro(
     # Step 5: Subtle final sharpen
     if sharpen_amount > 0:
         from .enhance import unsharp_mask
+
         out = unsharp_mask(out, sigma=1.2, amount=sharpen_amount)
         info["steps"].append(("unsharp", {"amount": sharpen_amount}))
 

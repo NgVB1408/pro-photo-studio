@@ -12,6 +12,7 @@ CPU: ~10-30s cho ảnh 4K. GPU CUDA: ~1-3s.
 
 Lazy-loaded — không import torch nếu không gọi.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +37,7 @@ def _get_lama():
         if _LAMA_INSTANCE is not None:
             return _LAMA_INSTANCE
         from simple_lama_inpainting import SimpleLama
+
         _LAMA_INSTANCE = SimpleLama()
         logger.info("LaMa loaded")
         return _LAMA_INSTANCE
@@ -65,10 +67,11 @@ def inpaint_ai(
         return image.copy()
 
     if dilate > 0:
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate*2+1, dilate*2+1))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate * 2 + 1, dilate * 2 + 1))
         mask = cv2.dilate(mask, kernel)
 
     from PIL import Image as PILImage
+
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_img = PILImage.fromarray(rgb)
     pil_mask = PILImage.fromarray(mask)
@@ -84,7 +87,10 @@ def inpaint_ai(
 
 
 def inpaint_smart(
-    image: np.ndarray, mask: np.ndarray, *, force_classical: bool = False,
+    image: np.ndarray,
+    mask: np.ndarray,
+    *,
+    force_classical: bool = False,
 ) -> np.ndarray:
     """Tự chọn classical/AI dựa trên kích thước mask."""
     H, W = image.shape[:2]
@@ -94,11 +100,13 @@ def inpaint_smart(
     if force_classical or rel < 0.001:
         # Mask nhỏ < 0.1% pixel — Telea fast + đủ chất lượng
         from .inpaint import inpaint_opencv
+
         return inpaint_opencv(image, mask, method="telea", radius=3)
 
     try:
         return inpaint_ai(image, mask, dilate=3)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("LaMa fail (%s), fallback classical NS", exc)
         from .inpaint import inpaint_opencv
+
         return inpaint_opencv(image, mask, method="ns", radius=5)

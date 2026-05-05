@@ -4,6 +4,7 @@ Hai chế độ:
   1. Khi rembg cài → integration test thực sự
   2. Khi không cài → fallback heuristic phải work, không raise
 """
+
 from __future__ import annotations
 
 import importlib
@@ -11,7 +12,6 @@ import importlib
 import cv2
 import numpy as np
 import pytest
-
 from pps_core.sky_seg_ai import (
     detect_sky_mask_ai,
     detect_sky_mask_smart,
@@ -31,7 +31,7 @@ def _outdoor_with_sky(h: int = 480, w: int = 720) -> np.ndarray:
     # Building dải giữa
     cv2.rectangle(img, (240, int(h * 0.45)), (520, int(h * 0.85)), (90, 90, 90), -1)
     # Grass dưới
-    img[int(h * 0.85):, :] = (50, 130, 60)
+    img[int(h * 0.85) :, :] = (50, 130, 60)
     return img
 
 
@@ -54,7 +54,9 @@ def test_smart_routes_through_correct_backend():
     assert "mode" in info
     if REMBG_AVAILABLE:
         assert info["mode"].startswith("rembg") or info["mode"] in (
-            "skip_indoor", "fallback_heuristic", "fallback_after_error",
+            "skip_indoor",
+            "fallback_heuristic",
+            "fallback_after_error",
         )
     else:
         assert info["mode"] == "fallback_heuristic"
@@ -84,14 +86,12 @@ def test_is_available_returns_bool():
     assert isinstance(is_available(), bool)
 
 
-@pytest.mark.skipif(not REMBG_AVAILABLE,
-                    reason="rembg chưa cài — skip integration test")
+@pytest.mark.skipif(not REMBG_AVAILABLE, reason="rembg chưa cài — skip integration test")
 def test_rembg_path_actually_runs():
     """End-to-end với rembg installed — chỉ chạy khi extras [sky-ai] cài."""
     img = _outdoor_with_sky()
     info: dict = {}
-    mask = detect_sky_mask_ai(img, fallback=False, require_outdoor=False,
-                               debug_info=info)
+    mask = detect_sky_mask_ai(img, fallback=False, require_outdoor=False, debug_info=info)
     assert mask.shape == img.shape[:2]
     assert info["mode"].startswith("rembg")
     # Sky phải được detect (synth scene có 50% sky)

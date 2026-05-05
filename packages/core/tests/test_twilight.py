@@ -1,15 +1,15 @@
 """Tests cho pps_core.twilight (Day → Sunset transform)."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from pps_core.twilight import (
     TwilightReport,
-    transform_to_twilight,
+    _apply_warm_tone,
     _detect_window_glow_mask,
     _sunset_gradient,
-    _apply_warm_tone,
+    transform_to_twilight,
 )
 
 
@@ -36,6 +36,7 @@ def _make_interior(h: int = 240, w: int = 320) -> np.ndarray:
 
 # ---------- _sunset_gradient ----------
 
+
 def test_sunset_gradient_shape_and_range():
     rng = np.random.default_rng(42)
     sky = _sunset_gradient(120, 200, rng=rng)
@@ -57,6 +58,7 @@ def test_sunset_gradient_seedable():
 
 # ---------- _apply_warm_tone ----------
 
+
 def test_warm_tone_shifts_b_channel_up():
     img = np.full((50, 50, 3), 128, dtype=np.uint8)
     out = _apply_warm_tone(img, strength=0.8)
@@ -72,6 +74,7 @@ def test_warm_tone_zero_strength_noop():
 
 
 # ---------- _detect_window_glow_mask ----------
+
 
 def test_window_glow_returns_float_01():
     img = _make_outdoor()
@@ -92,6 +95,7 @@ def test_window_glow_excludes_sky():
 
 
 # ---------- transform_to_twilight ----------
+
 
 def test_twilight_outdoor_applied():
     img = _make_outdoor()
@@ -132,7 +136,7 @@ def test_twilight_strength_scaling():
 
 def test_twilight_rejects_bgra():
     img = np.zeros((20, 20, 4), dtype=np.uint8)
-    out, rpt = transform_to_twilight(img)
+    out, _rpt = transform_to_twilight(img)
     # BGRA should be auto-converted to BGR, output 3-channel
     assert out.shape == (20, 20, 3)
 

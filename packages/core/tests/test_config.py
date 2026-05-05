@@ -1,12 +1,16 @@
 import pytest
-
 from pps_core.config import load_settings
 
 
 def test_load_defaults(monkeypatch):
     for key in [
-        "UNSPLASH_ACCESS_KEY", "INPAINT_BACKEND", "OPENCV_METHOD",
-        "OPENCV_RADIUS", "LAMA_DEVICE", "OUTPUT_DIR", "LOG_LEVEL",
+        "UNSPLASH_ACCESS_KEY",
+        "INPAINT_BACKEND",
+        "OPENCV_METHOD",
+        "OPENCV_RADIUS",
+        "LAMA_DEVICE",
+        "OUTPUT_DIR",
+        "LOG_LEVEL",
     ]:
         monkeypatch.delenv(key, raising=False)
     s = load_settings(env_file=None)

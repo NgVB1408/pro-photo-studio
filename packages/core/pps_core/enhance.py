@@ -26,53 +26,64 @@ logger = logging.getLogger(__name__)
 
 WhiteBalanceMethod = Literal["gray_world", "white_patch", "auto", "off"]
 EnhancePreset = Literal[
-    "real_estate", "portrait", "product", "outdoor", "auto", "custom",
+    "real_estate",
+    "portrait",
+    "product",
+    "outdoor",
+    "auto",
+    "custom",
 ]
 
 
 @dataclass
 class EnhanceParams:
     white_balance: WhiteBalanceMethod = "gray_world"
-    clahe_clip: float = 2.0          # CLAHE clip limit (1=mild, 4=strong)
-    clahe_tile: int = 8               # CLAHE tile grid
-    highlight_recovery: float = 0.3   # 0=off, 1=aggressive
-    shadow_lift: float = 0.3          # 0=off, 1=strong lift
-    vibrance: float = 0.25            # 0=off, 1=very saturated
-    saturation_boost: float = 0.0     # uniform boost (use vibrance instead usually)
-    unsharp_amount: float = 0.6       # 0=off, 1=strong sharpen
+    clahe_clip: float = 2.0  # CLAHE clip limit (1=mild, 4=strong)
+    clahe_tile: int = 8  # CLAHE tile grid
+    highlight_recovery: float = 0.3  # 0=off, 1=aggressive
+    shadow_lift: float = 0.3  # 0=off, 1=strong lift
+    vibrance: float = 0.25  # 0=off, 1=very saturated
+    saturation_boost: float = 0.0  # uniform boost (use vibrance instead usually)
+    unsharp_amount: float = 0.6  # 0=off, 1=strong sharpen
     unsharp_sigma: float = 1.5
-    denoise_strength: int = 0         # 0=off, 3-10 = bilateral filter d
-    gamma: float = 1.0                # 1.0 = không đổi
+    denoise_strength: int = 0  # 0=off, 3-10 = bilateral filter d
+    gamma: float = 1.0  # 1.0 = không đổi
 
 
 PRESETS: dict[str, EnhanceParams] = {
     "studio": EnhanceParams(  # high-quality, slower (~2s/4K)
         white_balance="gray_world",
-        clahe_clip=2.0, clahe_tile=12,
+        clahe_clip=2.0,
+        clahe_tile=12,
         highlight_recovery=0.5,
         shadow_lift=0.5,
         vibrance=0.3,
-        unsharp_amount=0.6, unsharp_sigma=1.0,
+        unsharp_amount=0.6,
+        unsharp_sigma=1.0,
         denoise_strength=0,
         gamma=0.92,
     ),
     "real_estate": EnhanceParams(
         white_balance="auto",
-        clahe_clip=1.2, clahe_tile=8,
+        clahe_clip=1.2,
+        clahe_tile=8,
         highlight_recovery=0.4,
         shadow_lift=0.35,
         vibrance=0.18,
-        unsharp_amount=0.35, unsharp_sigma=1.2,
+        unsharp_amount=0.35,
+        unsharp_sigma=1.2,
         denoise_strength=0,
         gamma=0.97,
     ),
     "portrait": EnhanceParams(
         white_balance="gray_world",
-        clahe_clip=1.5, clahe_tile=8,
+        clahe_clip=1.5,
+        clahe_tile=8,
         highlight_recovery=0.2,
         shadow_lift=0.3,
         vibrance=0.15,
-        unsharp_amount=0.4, unsharp_sigma=1.0,
+        unsharp_amount=0.4,
+        unsharp_sigma=1.0,
         denoise_strength=5,  # smooth skin
     ),
     "product": EnhanceParams(
@@ -81,7 +92,8 @@ PRESETS: dict[str, EnhanceParams] = {
         highlight_recovery=0.2,
         shadow_lift=0.2,
         vibrance=0.3,
-        unsharp_amount=0.7, unsharp_sigma=1.0,
+        unsharp_amount=0.7,
+        unsharp_sigma=1.0,
     ),
     "outdoor": EnhanceParams(
         white_balance="gray_world",
@@ -224,7 +236,9 @@ def denoise(img: np.ndarray, *, strength: int = 5) -> np.ndarray:
 
 
 def multi_scale_retinex(
-    img: np.ndarray, *, scales: tuple[int, ...] = (15, 80, 250),
+    img: np.ndarray,
+    *,
+    scales: tuple[int, ...] = (15, 80, 250),
 ) -> np.ndarray:
     """Multi-Scale Retinex — classic color/exposure normalization.
     Simulates human visual system, excellent for indoor real estate photos
@@ -249,8 +263,11 @@ def multi_scale_retinex(
 
 
 def guided_filter(
-    img: np.ndarray, guide: np.ndarray | None = None,
-    *, radius: int = 8, eps: float = 1e-3,
+    img: np.ndarray,
+    guide: np.ndarray | None = None,
+    *,
+    radius: int = 8,
+    eps: float = 1e-3,
 ) -> np.ndarray:
     """Edge-preserving smoothing (He et al. 2010). Pure numpy, fast.
     Dùng để smooth noise nhưng giữ edge, hoặc tách base/detail layer.
@@ -287,7 +304,10 @@ def _guided_filter_single(p: np.ndarray, I: np.ndarray, r: int, eps: float) -> n
 
 
 def tonemap_reinhard(
-    img: np.ndarray, *, key: float = 0.18, white_point: float = 0.95,
+    img: np.ndarray,
+    *,
+    key: float = 0.18,
+    white_point: float = 0.95,
 ) -> np.ndarray:
     """Reinhard global tone mapping — HDR-style với roll-off highlights."""
     f = img.astype(np.float32) / 255.0
@@ -299,7 +319,7 @@ def tonemap_reinhard(
     scaled = key / avg_lum * lum
     # Reinhard with white point
     L_white = white_point * scaled.max()
-    new_lum = (scaled * (1 + scaled / (L_white ** 2))) / (1 + scaled)
+    new_lum = (scaled * (1 + scaled / (L_white**2))) / (1 + scaled)
     # Apply tone curve preserving color ratios
     ratio = (new_lum / (lum + 1e-6))[..., None]
     out = f * ratio
@@ -307,7 +327,10 @@ def tonemap_reinhard(
 
 
 def s_curve_tone(
-    img: np.ndarray, *, shadows: float = 0.0, highlights: float = 0.0,
+    img: np.ndarray,
+    *,
+    shadows: float = 0.0,
+    highlights: float = 0.0,
     contrast: float = 0.15,
 ) -> np.ndarray:
     """S-curve tone mapping với crushable shadows + roll-off highlights.
@@ -336,7 +359,10 @@ def s_curve_tone(
 
 
 def local_detail_enhance(
-    img: np.ndarray, *, strength: float = 0.5, radius: int = 8,
+    img: np.ndarray,
+    *,
+    strength: float = 0.5,
+    radius: int = 8,
 ) -> np.ndarray:
     """Local detail enhancement via guided filter base/detail decomposition.
     Tách ảnh = base (smooth) + detail (high freq), boost detail, recombine.
@@ -485,23 +511,29 @@ _gfpgan_model = None
 
 
 def upscale_realesrgan(
-    img: np.ndarray, *, scale: int = 2, device: str = "auto",
+    img: np.ndarray,
+    *,
+    scale: int = 2,
+    device: str = "auto",
 ) -> np.ndarray:
     """Real-ESRGAN super-resolution. Cần `pip install realesrgan basicsr`."""
     global _realesrgan_model
     try:
-        from realesrgan import RealESRGANer  # type: ignore
         from basicsr.archs.rrdbnet_arch import RRDBNet  # type: ignore
+        from realesrgan import RealESRGANer  # type: ignore
     except ImportError as exc:
-        raise RuntimeError(
-            "Real-ESRGAN cần: pip install realesrgan basicsr (cần torch)"
-        ) from exc
+        raise RuntimeError("Real-ESRGAN cần: pip install realesrgan basicsr (cần torch)") from exc
 
     if _realesrgan_model is None:
         from .inpaint import resolve_device
+
         actual_device = resolve_device(device)
         model = RRDBNet(
-            num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32,
+            num_in_ch=3,
+            num_out_ch=3,
+            num_feat=64,
+            num_block=23,
+            num_grow_ch=32,
             scale=scale,
         )
         _realesrgan_model = RealESRGANer(
@@ -516,7 +548,9 @@ def upscale_realesrgan(
 
 
 def restore_face_gfpgan(
-    img: np.ndarray, *, device: str = "auto",
+    img: np.ndarray,
+    *,
+    device: str = "auto",
 ) -> np.ndarray:
     """GFPGAN face restoration. Cần `pip install gfpgan`."""
     global _gfpgan_model
@@ -527,13 +561,19 @@ def restore_face_gfpgan(
 
     if _gfpgan_model is None:
         from .inpaint import resolve_device
+
         actual_device = resolve_device(device)
         _gfpgan_model = GFPGANer(
             model_path="https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.3.pth",
-            upscale=1, arch="clean", channel_multiplier=2,
+            upscale=1,
+            arch="clean",
+            channel_multiplier=2,
             device=actual_device,
         )
     _, _, restored = _gfpgan_model.enhance(
-        img, has_aligned=False, only_center_face=False, paste_back=True,
+        img,
+        has_aligned=False,
+        only_center_face=False,
+        paste_back=True,
     )
     return restored if restored is not None else img

@@ -11,6 +11,7 @@ Steps:
 
 Hoàn toàn local, không depend ML.
 """
+
 from __future__ import annotations
 
 import logging
@@ -70,10 +71,12 @@ def _detect_fireplace_openings(img: np.ndarray) -> list[FireplaceDetection]:
         conf = float(rect_score * 0.7 + pos_score * 0.3)
         if conf < 0.5:
             continue
-        candidates.append(FireplaceDetection(
-            bbox=(int(x), int(y), int(w), int(h)),
-            confidence=conf,
-        ))
+        candidates.append(
+            FireplaceDetection(
+                bbox=(int(x), int(y), int(w), int(h)),
+                confidence=conf,
+            )
+        )
     candidates.sort(key=lambda d: -d.confidence)
     return candidates
 
@@ -84,10 +87,10 @@ def _generate_fire_texture(w: int, h: int, *, seed: int = 42) -> np.ndarray:
     # Multi-octave value noise
     noise = np.zeros((h, w), dtype=np.float32)
     for octave in range(4):
-        scale = 2 ** octave
+        scale = 2**octave
         small = rng.random((max(1, h // (8 * scale)), max(1, w // (8 * scale)))).astype(np.float32)
         big = cv2.resize(small, (w, h), interpolation=cv2.INTER_CUBIC)
-        noise += big * (0.6 ** octave)
+        noise += big * (0.6**octave)
     noise = (noise - noise.min()) / (noise.max() - noise.min() + 1e-6)
 
     # Vertical flame falloff (nến cháy hướng lên trên)
@@ -103,9 +106,9 @@ def _generate_fire_texture(w: int, h: int, *, seed: int = 42) -> np.ndarray:
 
     # Color: dark red → orange → yellow theo intensity
     fire = np.zeros((h, w, 3), dtype=np.float32)
-    fire[..., 2] = np.clip(intensity * 1.4, 0, 1) * 255         # R
-    fire[..., 1] = np.clip(intensity * 1.0 - 0.2, 0, 1) * 255   # G (hơn 0.2 mới có)
-    fire[..., 0] = np.clip(intensity * 0.4 - 0.5, 0, 1) * 255   # B (chỉ vùng nóng nhất)
+    fire[..., 2] = np.clip(intensity * 1.4, 0, 1) * 255  # R
+    fire[..., 1] = np.clip(intensity * 1.0 - 0.2, 0, 1) * 255  # G (hơn 0.2 mới có)
+    fire[..., 0] = np.clip(intensity * 0.4 - 0.5, 0, 1) * 255  # B (chỉ vùng nóng nhất)
 
     # Add white-hot core
     hot_core = (intensity > 0.85).astype(np.float32)
@@ -117,8 +120,11 @@ def _generate_fire_texture(w: int, h: int, *, seed: int = 42) -> np.ndarray:
 
 
 def add_fire_to_bbox(
-    img: np.ndarray, bbox: tuple[int, int, int, int],
-    *, intensity: float = 0.85, glow: bool = True,
+    img: np.ndarray,
+    bbox: tuple[int, int, int, int],
+    *,
+    intensity: float = 0.85,
+    glow: bool = True,
 ) -> np.ndarray:
     """Composite fire vào bbox + glow surround in-place."""
     x, y, w, h = bbox
@@ -137,7 +143,9 @@ def add_fire_to_bbox(
     out = img.copy()
     region = out[y:y2, x:x2].astype(np.float32)
     # Blend
-    blended = region * (1 - fire_alpha * intensity) + fire.astype(np.float32) * fire_alpha * intensity
+    blended = (
+        region * (1 - fire_alpha * intensity) + fire.astype(np.float32) * fire_alpha * intensity
+    )
     out[y:y2, x:x2] = np.clip(blended, 0, 255).astype(np.uint8)
 
     # Glow lan ra surround (gradient warm cast)
@@ -170,7 +178,9 @@ def add_fire_to_bbox(
 
 
 def fire_in_fireplace(
-    img: np.ndarray, *, max_fires: int = 1,
+    img: np.ndarray,
+    *,
+    max_fires: int = 1,
 ) -> tuple[np.ndarray, FireReport]:
     """Auto detect fireplace opening + add fire."""
     out = img.copy()

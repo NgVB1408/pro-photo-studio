@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 import requests
 from tqdm import tqdm
@@ -88,21 +89,19 @@ class UnsplashClient:
                 logger.warning("Unsplash GET %s lần %d lỗi: %s", path, attempt, exc)
             else:
                 if resp.status_code == 429:
-                    wait = min(2 ** attempt, 30)
+                    wait = min(2**attempt, 30)
                     logger.warning("Rate-limited 429, chờ %ds", wait)
                     time.sleep(wait)
                     continue
                 if 500 <= resp.status_code < 600:
-                    wait = min(2 ** attempt, 15)
+                    wait = min(2**attempt, 15)
                     logger.warning("Server %d, chờ %ds", resp.status_code, wait)
                     time.sleep(wait)
                     continue
                 if resp.status_code >= 400:
-                    raise UnsplashError(
-                        f"Unsplash {resp.status_code}: {resp.text[:200]}"
-                    )
+                    raise UnsplashError(f"Unsplash {resp.status_code}: {resp.text[:200]}")
                 return resp.json()
-            time.sleep(min(2 ** attempt, 10))
+            time.sleep(min(2**attempt, 10))
         raise UnsplashError(f"Hết retry cho {url}") from last_exc
 
     def search(

@@ -15,6 +15,7 @@ So với gradient cũ:
 API: generate_sky(h, w, preset, seed=None) -> BGR uint8
      match_sky_to_scene(sky, scene, mask) -> sky đã match warm/cool
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,12 +27,12 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 SkyPresetV2 = Literal[
-    "blue_clear",      # trời xanh trong, không mây — open sky
-    "blue_clouds",     # xanh + mây cumulus — phổ biến nhất cho RE
-    "sunset_warm",     # hoàng hôn cam đỏ
-    "golden_hour",     # vàng nhẹ + mây nhẹ — dramatic listing
+    "blue_clear",  # trời xanh trong, không mây — open sky
+    "blue_clouds",  # xanh + mây cumulus — phổ biến nhất cho RE
+    "sunset_warm",  # hoàng hôn cam đỏ
+    "golden_hour",  # vàng nhẹ + mây nhẹ — dramatic listing
     "dramatic_storm",  # mây đen + tia sáng — luxury listing
-    "overcast_soft",   # nhiều mây mềm — neutral
+    "overcast_soft",  # nhiều mây mềm — neutral
 ]
 
 
@@ -48,7 +49,7 @@ _PRESET_CONFIG: dict[str, dict] = {
         "zenith": (215, 150, 75),
         "horizon": (235, 215, 195),
         "clouds": True,
-        "cloud_density": 0.55,    # threshold thấp hơn = nhiều mây hơn
+        "cloud_density": 0.55,  # threshold thấp hơn = nhiều mây hơn
         "cloud_softness": 2.5,
         "cloud_color": (252, 248, 244),
         "cloud_mix": 0.85,
@@ -92,7 +93,7 @@ _PRESET_CONFIG: dict[str, dict] = {
         "zenith": (200, 200, 200),
         "horizon": (228, 228, 228),
         "clouds": True,
-        "cloud_density": 0.35,    # mây dày phủ kín
+        "cloud_density": 0.35,  # mây dày phủ kín
         "cloud_softness": 3.2,
         "cloud_color": (240, 240, 238),
         "cloud_mix": 0.55,
@@ -103,8 +104,13 @@ _PRESET_CONFIG: dict[str, dict] = {
 
 
 def _value_noise_2d(
-    h: int, w: int, *, scale: int = 100, octaves: int = 5,
-    persistence: float = 0.55, seed: int = 0,
+    h: int,
+    w: int,
+    *,
+    scale: int = 100,
+    octaves: int = 5,
+    persistence: float = 0.55,
+    seed: int = 0,
 ) -> np.ndarray:
     """Multi-octave value noise (giống Perlin về tinh thần). Nhanh, deterministic.
 
@@ -144,7 +150,9 @@ def _vertical_gradient(h: int, w: int, top_bgr, bot_bgr, *, power: float = 0.65)
 
 
 def generate_sky(
-    h: int, w: int, *,
+    h: int,
+    w: int,
+    *,
     preset: SkyPresetV2 = "blue_clouds",
     seed: int | None = None,
 ) -> np.ndarray:
@@ -153,9 +161,7 @@ def generate_sky(
     seed=None → random sky mỗi lần. seed=int → deterministic.
     """
     if preset not in _PRESET_CONFIG:
-        raise ValueError(
-            f"Preset không hợp lệ: {preset}. Có: {list(_PRESET_CONFIG)}"
-        )
+        raise ValueError(f"Preset không hợp lệ: {preset}. Có: {list(_PRESET_CONFIG)}")
     cfg = _PRESET_CONFIG[preset]
     if seed is None:
         seed = int(np.random.default_rng().integers(0, 2**31))
@@ -168,7 +174,12 @@ def generate_sky(
         # Scale tương đối: ảnh càng rộng thì cloud càng to
         scale = max(60, w // 12)
         noise = _value_noise_2d(
-            h, w, scale=scale, octaves=5, persistence=0.55, seed=seed,
+            h,
+            w,
+            scale=scale,
+            octaves=5,
+            persistence=0.55,
+            seed=seed,
         )
         # Threshold soft → mask mây có giá trị 0..1
         density = float(cfg.get("cloud_density", 0.5))
@@ -182,11 +193,11 @@ def generate_sky(
         cloud_mask = cloud_mask * mid_bias
         cloud_mask_3d = cloud_mask[..., None]
 
-        cloud_bgr = np.array(cfg.get("cloud_color", (250, 248, 245)),
-                              dtype=np.float32).reshape(1, 1, 3)
+        cloud_bgr = np.array(cfg.get("cloud_color", (250, 248, 245)), dtype=np.float32).reshape(
+            1, 1, 3
+        )
         cloud_mix = float(cfg.get("cloud_mix", 0.8))
-        sky = sky * (1.0 - cloud_mask_3d * cloud_mix) + \
-              cloud_bgr * (cloud_mask_3d * cloud_mix)
+        sky = sky * (1.0 - cloud_mask_3d * cloud_mix) + cloud_bgr * (cloud_mask_3d * cloud_mix)
 
     # 3. Atmospheric haze ở chân trời (bottom 30%)
     haze_strength = float(cfg.get("haze_strength", 0.25))
@@ -194,10 +205,10 @@ def generate_sky(
         y_norm = np.linspace(0, 1, h, dtype=np.float32)[:, None]
         # Haze mạnh dần từ giữa xuống horizon
         haze_mask = np.clip((y_norm - 0.55) / 0.45, 0.0, 1.0)[..., None]
-        haze_bgr = np.array(cfg.get("haze_color", (210, 220, 235)),
-                             dtype=np.float32).reshape(1, 1, 3)
-        sky = sky * (1.0 - haze_mask * haze_strength) + \
-              haze_bgr * (haze_mask * haze_strength)
+        haze_bgr = np.array(cfg.get("haze_color", (210, 220, 235)), dtype=np.float32).reshape(
+            1, 1, 3
+        )
+        sky = sky * (1.0 - haze_mask * haze_strength) + haze_bgr * (haze_mask * haze_strength)
 
     # 4. Mild noise để tránh banding khi save JPEG
     rng = np.random.default_rng(seed)
@@ -232,8 +243,11 @@ def estimate_scene_temperature(scene_bgr: np.ndarray, sky_mask: np.ndarray) -> f
 
 
 def match_sky_to_scene(
-    sky_bgr: np.ndarray, scene_bgr: np.ndarray, sky_mask: np.ndarray,
-    *, max_shift: float = 0.06,
+    sky_bgr: np.ndarray,
+    scene_bgr: np.ndarray,
+    sky_mask: np.ndarray,
+    *,
+    max_shift: float = 0.06,
 ) -> np.ndarray:
     """Subtle warm/cool shift cho sky để match với scene temperature.
 
@@ -256,8 +270,11 @@ def match_sky_to_scene(
 
 
 def cast_sky_color_on_glass(
-    img_bgr: np.ndarray, sky_bgr: np.ndarray, sky_mask: np.ndarray,
-    *, strength: float = 0.12,
+    img_bgr: np.ndarray,
+    sky_bgr: np.ndarray,
+    sky_mask: np.ndarray,
+    *,
+    strength: float = 0.12,
 ) -> np.ndarray:
     """Subtle reflection: cast sky color lên các bề mặt sáng KHÔNG phải sky
     (cửa kính, cửa sổ, water). Pro-grade detail.
@@ -275,7 +292,8 @@ def cast_sky_color_on_glass(
     glass_candidate = (bright & low_sat & not_sky).astype(np.uint8) * 255
     # Yêu cầu cluster đủ to (cửa sổ thật, không phải pixel noise)
     n, labels, stats, _ = cv2.connectedComponentsWithStats(
-        glass_candidate, connectivity=8,
+        glass_candidate,
+        connectivity=8,
     )
     keep = np.zeros_like(glass_candidate)
     min_area = (h * w) * 0.0008

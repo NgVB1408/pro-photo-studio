@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterable
 
 from tqdm import tqdm
 
@@ -67,12 +67,15 @@ def _process_one(
     """Worker — phải import lại trong subprocess (Windows spawn)."""
     in_path, out_path, kwargs = job
     try:
+        from .detect import auto_mask
         from .inpaint import InpaintBackend, inpaint
         from .mask import (
-            build_mask_from_boxes, build_mask_from_color,
-            build_mask_from_image, combine_masks, dilate_mask,
+            build_mask_from_boxes,
+            build_mask_from_color,
+            build_mask_from_image,
+            combine_masks,
+            dilate_mask,
         )
-        from .detect import auto_mask
         from .utils import read_image, write_image
 
         img = read_image(in_path)
@@ -107,7 +110,8 @@ def _process_one(
             mask = dilate_mask(mask, iterations=dilate_iters)
 
         result = inpaint(
-            img, mask,
+            img,
+            mask,
             backend=InpaintBackend(kwargs.get("backend", "opencv")),
             opencv_method=kwargs.get("opencv_method", "telea"),
             opencv_radius=int(kwargs.get("opencv_radius", 3)),
@@ -116,7 +120,7 @@ def _process_one(
         )
         write_image(out_path, result, quality=int(kwargs.get("quality", 95)))
         return in_path, None
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return in_path, f"{type(exc).__name__}: {exc}"
 
 
@@ -198,7 +202,7 @@ def call_per_file(
     for f in files:
         try:
             fn(f)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error("%s: %s", f, exc)
         finally:
             bar.update(1)

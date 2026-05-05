@@ -12,7 +12,7 @@ LaMa lazy-import để OpenCV-only setup không cần torch.
 from __future__ import annotations
 
 import logging
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 import cv2
@@ -21,7 +21,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-class InpaintBackend(str, Enum):
+class InpaintBackend(StrEnum):
     OPENCV = "opencv"
     LAMA = "lama"
 
@@ -44,9 +44,7 @@ def _validate_inputs(image: np.ndarray, mask: np.ndarray) -> None:
     if mask.ndim != 2:
         raise ValueError(f"mask phải 2 chiều (H, W), nhận shape={mask.shape}")
     if image.shape[:2] != mask.shape:
-        raise ValueError(
-            f"image vs mask khác kích thước: {image.shape[:2]} vs {mask.shape}"
-        )
+        raise ValueError(f"image vs mask khác kích thước: {image.shape[:2]} vs {mask.shape}")
     if not np.any(mask):
         raise ValueError("Mask rỗng — không có pixel nào để inpaint")
 
@@ -72,21 +70,24 @@ def inpaint_opencv(
     if radius < 1:
         raise ValueError("radius >= 1")
 
-    if image.shape[2] == 4:
-        bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
-    else:
-        bgr = image
+    bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR) if image.shape[2] == 4 else image
 
     # Phát hiện mask có chạm rìa ảnh không
     h, w = bgr.shape[:2]
     near_edge = (
-        mask[:edge_pad, :].any() or mask[-edge_pad:, :].any()
-        or mask[:, :edge_pad].any() or mask[:, -edge_pad:].any()
+        mask[:edge_pad, :].any()
+        or mask[-edge_pad:, :].any()
+        or mask[:, :edge_pad].any()
+        or mask[:, -edge_pad:].any()
     )
 
     if near_edge and edge_pad > 0:
         bgr_pad = cv2.copyMakeBorder(
-            bgr, edge_pad, edge_pad, edge_pad, edge_pad,
+            bgr,
+            edge_pad,
+            edge_pad,
+            edge_pad,
+            edge_pad,
             borderType=cv2.BORDER_REFLECT_101,
         )
         # CRITICAL: mirror mask cùng cách để inpaint KHÔNG sample từ vùng
@@ -94,14 +95,20 @@ def inpaint_opencv(
         # mirror của logo → nếu mask không phủ vùng đó, blue sẽ bị
         # propagate ngược vào vùng mask).
         mask_pad = cv2.copyMakeBorder(
-            mask, edge_pad, edge_pad, edge_pad, edge_pad,
+            mask,
+            edge_pad,
+            edge_pad,
+            edge_pad,
+            edge_pad,
             borderType=cv2.BORDER_REFLECT_101,
         )
         result_pad = cv2.inpaint(bgr_pad, mask_pad, radius, flag)
-        result = result_pad[edge_pad:edge_pad + h, edge_pad:edge_pad + w]
+        result = result_pad[edge_pad : edge_pad + h, edge_pad : edge_pad + w]
         logger.debug(
             "OpenCV inpaint xong: method=%s radius=%d (mirror-pad %dpx, mirror mask)",
-            method, radius, edge_pad,
+            method,
+            radius,
+            edge_pad,
         )
     else:
         result = cv2.inpaint(bgr, mask, radius, flag)
@@ -113,7 +120,13 @@ def inpaint_opencv(
 _LAMA_MODELS: dict[tuple[str, str], object] = {}  # cache theo (model_name, device)
 
 SUPPORTED_LAMA_MODELS = (
-    "lama", "ldm", "zits", "mat", "fcf", "manga", "migan",
+    "lama",
+    "ldm",
+    "zits",
+    "mat",
+    "fcf",
+    "manga",
+    "migan",
     "cv2",  # opencv inpaint via iopaint, không khuyến nghị (đã có backend riêng)
 )
 
@@ -137,9 +150,7 @@ def resolve_device(requested: str = "auto") -> str:
 def _load_lama(device: str, model_name: str = "lama") -> object:
     """Lazy-load model qua iopaint. Trả về callable model. Cache theo (model, device)."""
     if model_name not in SUPPORTED_LAMA_MODELS:
-        raise ValueError(
-            f"model {model_name!r} không hỗ trợ. Chọn: {SUPPORTED_LAMA_MODELS}"
-        )
+        raise ValueError(f"model {model_name!r} không hỗ trợ. Chọn: {SUPPORTED_LAMA_MODELS}")
 
     actual_device = resolve_device(device)
     cache_key = (model_name, actual_device)
@@ -158,7 +169,8 @@ def _load_lama(device: str, model_name: str = "lama") -> object:
 
     logger.info(
         "Loading model %r (device=%s) — lần đầu sẽ tải weights",
-        model_name, actual_device,
+        model_name,
+        actual_device,
     )
     model = ModelManager(name=model_name, device=actual_device)
     _LAMA_MODELS[cache_key] = model
@@ -193,7 +205,7 @@ def inpaint_lama(
     _validate_inputs(image, mask)
 
     try:
-        from iopaint.schema import InpaintRequest, HDStrategy  # type: ignore
+        from iopaint.schema import HDStrategy, InpaintRequest  # type: ignore
     except ImportError as exc:
         raise RuntimeError(
             "Backend 'lama' cần gói iopaint. Cài: pip install -r requirements-lama.txt"
@@ -214,16 +226,15 @@ def inpaint_lama(
     }
     strategy_enum = strategy_map.get(hd_strategy.lower())
     if strategy_enum is None:
-        raise ValueError(
-            f"hd_strategy phải thuộc {list(strategy_map)}, nhận {hd_strategy!r}"
-        )
+        raise ValueError(f"hd_strategy phải thuộc {list(strategy_map)}, nhận {hd_strategy!r}")
 
     h, w = rgb.shape[:2]
     longest = max(h, w)
     if hd_strategy == "original" and longest > 2048:
         logger.warning(
             "Ảnh %dx%d + hd_strategy=original có thể OOM. Khuyến nghị 'crop'.",
-            w, h,
+            w,
+            h,
         )
 
     request = InpaintRequest(
@@ -234,7 +245,11 @@ def inpaint_lama(
     )
     logger.info(
         "%s inpaint: %dx%d, strategy=%s, device=%s",
-        model, w, h, hd_strategy, actual_device,
+        model,
+        w,
+        h,
+        hd_strategy,
+        actual_device,
     )
     result_rgb = inpaint_model(rgb, mask, request)  # type: ignore[operator]
     result = cv2.cvtColor(np.asarray(result_rgb, dtype=np.uint8), cv2.COLOR_RGB2BGR)
@@ -265,7 +280,8 @@ def inpaint(
         return inpaint_opencv(image, mask, method=opencv_method, radius=opencv_radius)
     if name == InpaintBackend.LAMA.value:
         return inpaint_lama(
-            image, mask,
+            image,
+            mask,
             device=lama_device,
             model=lama_model,
             hd_strategy=hd_strategy,

@@ -1,15 +1,15 @@
 """Tests cho indoor_pro module — selective wall WB + surface clarity."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from pps_core.indoor_pro import (
-    detect_white_wall_mask,
-    selective_wall_wb,
-    detect_smooth_surface_mask,
     boost_surface_clarity,
+    detect_smooth_surface_mask,
+    detect_white_wall_mask,
     enhance_interior_pro,
+    selective_wall_wb,
 )
 
 
@@ -17,13 +17,16 @@ def _make_room_with_tungsten_cast(h: int = 480, w: int = 640) -> np.ndarray:
     """Phòng có tường trắng + tungsten cast vàng (BGR ám vàng = R cao G mid B thấp)."""
     img = np.zeros((h, w, 3), dtype=np.uint8)
     # Tường trắng bị ám vàng (BGR ~ 200, 215, 230 — slight warm)
-    img[:int(h * 0.6)] = [200, 215, 230]
+    img[: int(h * 0.6)] = [200, 215, 230]
     # Sàn gỗ tối (BGR ~ 80, 100, 130)
-    img[int(h * 0.6):] = [80, 100, 130]
+    img[int(h * 0.6) :] = [80, 100, 130]
     # Đèn vàng rực ở góc — small bright spot (BGR ~ 50, 200, 255 = pure orange)
     cy, cx = int(h * 0.20), int(w * 0.45)
-    cv2_circle = lambda y, x, r, c: img[max(0, y - r):y + r, max(0, x - r):x + r].__setitem__(slice(None), c)
-    img[cy - 25:cy + 25, cx - 30:cx + 30] = [50, 200, 255]
+
+    def cv2_circle(y, x, r, c):
+        return img[max(0, y - r) : y + r, max(0, x - r) : x + r].__setitem__(slice(None), c)
+
+    img[cy - 25 : cy + 25, cx - 30 : cx + 30] = [50, 200, 255]
     return img
 
 
@@ -42,6 +45,7 @@ def _make_marble_room(h: int = 480, w: int = 640) -> np.ndarray:
 # ============================================================================
 # detect_white_wall_mask
 # ============================================================================
+
 
 def test_white_wall_mask_detected():
     img = _make_room_with_tungsten_cast()
@@ -63,6 +67,7 @@ def test_white_wall_excludes_warm_lamp():
 # selective_wall_wb
 # ============================================================================
 
+
 def test_selective_wb_neutralizes_cast():
     img = _make_room_with_tungsten_cast()
     out, info = selective_wall_wb(img, strength=1.0)
@@ -79,7 +84,7 @@ def test_selective_wb_neutralizes_cast():
 
 def test_selective_wb_preserves_lamp_glow():
     img = _make_room_with_tungsten_cast()
-    out, info = selective_wall_wb(img, strength=1.0)
+    out, _info = selective_wall_wb(img, strength=1.0)
     # Lamp center (saturated warm) — should be unchanged or minimally changed
     orig_lamp = img[100, int(img.shape[1] * 0.45)].astype(np.float32)
     new_lamp = out[100, int(img.shape[1] * 0.45)].astype(np.float32)
@@ -91,7 +96,7 @@ def test_selective_wb_preserves_lamp_glow():
 def test_selective_wb_skips_when_neutral():
     """Ảnh đã neutral → skip correction."""
     img = np.full((100, 100, 3), 200, dtype=np.uint8)  # uniform grey
-    out, info = selective_wall_wb(img, strength=1.0, cast_threshold=0.04)
+    _out, info = selective_wall_wb(img, strength=1.0, cast_threshold=0.04)
     assert info["applied"] is False
 
 
@@ -105,6 +110,7 @@ def test_selective_wb_zero_strength():
 # ============================================================================
 # detect_smooth_surface_mask
 # ============================================================================
+
 
 def test_smooth_surface_detected_on_marble():
     img = _make_marble_room()
@@ -130,6 +136,7 @@ def test_smooth_surface_excludes_high_edge():
 # ============================================================================
 # boost_surface_clarity
 # ============================================================================
+
 
 def test_clarity_boost_applies():
     img = _make_marble_room()
@@ -158,6 +165,7 @@ def test_clarity_increases_local_contrast():
 # ============================================================================
 # enhance_interior_pro composite
 # ============================================================================
+
 
 def test_interior_pro_composite_runs():
     img = _make_room_with_tungsten_cast()

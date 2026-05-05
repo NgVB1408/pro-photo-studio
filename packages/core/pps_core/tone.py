@@ -12,6 +12,7 @@
 
 Tất cả deterministic, CPU-only, KHÔNG cần ML.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,33 +27,36 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToneParams:
     """Lightroom-style tone params (range -1.0..+1.0)."""
+
     # White balance
-    temp_shift: float = 0.0      # -1 cool / +1 warm (≈ ±2000K)
-    tint_shift: float = 0.0      # -1 green / +1 magenta
+    temp_shift: float = 0.0  # -1 cool / +1 warm (≈ ±2000K)
+    tint_shift: float = 0.0  # -1 green / +1 magenta
     # Tone curve regions (4-region parametric)
-    highlights: float = 0.0      # giảm = pull down highlights
-    lights: float = 0.0          # giảm = pull down upper midtones
-    darks: float = 0.0           # tăng = lift lower midtones
-    shadows: float = 0.0         # tăng = lift shadows
+    highlights: float = 0.0  # giảm = pull down highlights
+    lights: float = 0.0  # giảm = pull down upper midtones
+    darks: float = 0.0  # tăng = lift lower midtones
+    shadows: float = 0.0  # tăng = lift shadows
     # Global
-    exposure: float = 0.0        # ±1 EV (-1=half, +1=double)
-    contrast: float = 0.0        # ±1 S-curve strength
-    blacks: float = 0.0          # ±1 black point shift
-    whites: float = 0.0          # ±1 white point shift
+    exposure: float = 0.0  # ±1 EV (-1=half, +1=double)
+    contrast: float = 0.0  # ±1 S-curve strength
+    blacks: float = 0.0  # ±1 black point shift
+    whites: float = 0.0  # ±1 white point shift
     # Detail/texture
-    texture: float = 0.0         # ±1 mid-freq contrast
-    clarity: float = 0.0         # ±1 local midtone contrast
-    dehaze: float = 0.0          # 0..1 dehaze strength
+    texture: float = 0.0  # ±1 mid-freq contrast
+    clarity: float = 0.0  # ±1 local midtone contrast
+    dehaze: float = 0.0  # 0..1 dehaze strength
 
 
 # =====================================================================
 # 1. White Balance — Kelvin + Tint sliders, eyedropper pick
 # =====================================================================
 
+
 def temperature_tint(
-    img: np.ndarray, *,
-    temp_shift: float = 0.0,    # -1 cool .. +1 warm
-    tint_shift: float = 0.0,    # -1 green .. +1 magenta
+    img: np.ndarray,
+    *,
+    temp_shift: float = 0.0,  # -1 cool .. +1 warm
+    tint_shift: float = 0.0,  # -1 green .. +1 magenta
 ) -> np.ndarray:
     """Lightroom WB sliders.
 
@@ -65,18 +69,19 @@ def temperature_tint(
     # Temperature: ±0.18 multiplier full range (≈ ±2000K natural)
     t = float(np.clip(temp_shift, -1.0, 1.0)) * 0.18
     if t != 0:
-        f[..., 2] = f[..., 2] * (1.0 + t)      # R
+        f[..., 2] = f[..., 2] * (1.0 + t)  # R
         f[..., 0] = f[..., 0] * (1.0 - t * 0.85)  # B
     # Tint: ±0.12 multiplier on G
     g = float(np.clip(tint_shift, -1.0, 1.0)) * 0.12
     if g != 0:
-        f[..., 1] = f[..., 1] * (1.0 - g)      # G (magenta = low G)
+        f[..., 1] = f[..., 1] * (1.0 - g)  # G (magenta = low G)
     return np.clip(f, 0, 255).astype(np.uint8)
 
 
 def white_balance_picker(
     img: np.ndarray,
-    x: int, y: int,
+    x: int,
+    y: int,
     *,
     radius: int = 15,
     target_neutral: float = 0.6,  # 0..1, mức gray target
@@ -128,6 +133,7 @@ def white_balance_picker(
 # =====================================================================
 # 2. Parametric Tone Curve — Lightroom 4-region equivalent
 # =====================================================================
+
 
 def _build_parametric_lut(
     *,
@@ -181,7 +187,7 @@ def _build_parametric_lut(
             continue
         amt = float(np.clip(amount, -1.0, 1.0))
         # Gaussian bump centered at this region (sigma 0.15)
-        bump = np.exp(-((x - center) ** 2) / (2 * 0.15 ** 2))
+        bump = np.exp(-((x - center) ** 2) / (2 * 0.15**2))
         y = y + amt * 0.15 * bump
 
     # 4. Contrast S-curve
@@ -222,6 +228,7 @@ def parametric_tone(img: np.ndarray, params: ToneParams) -> np.ndarray:
 # =====================================================================
 # 3. Texture / Clarity / Dehaze — Lightroom Develop module
 # =====================================================================
+
 
 def texture(img: np.ndarray, amount: float = 0.0) -> np.ndarray:
     """Mid-frequency contrast boost (Lightroom Texture).
@@ -311,6 +318,7 @@ def dehaze(img: np.ndarray, amount: float = 0.0) -> np.ndarray:
 # 4. Full pipeline
 # =====================================================================
 
+
 def apply_tone_full(img: np.ndarray, params: ToneParams) -> np.ndarray:
     """Áp full Lightroom-style pipeline theo thứ tự pro chuẩn:
 
@@ -321,7 +329,9 @@ def apply_tone_full(img: np.ndarray, params: ToneParams) -> np.ndarray:
     """
     out = img
     out = temperature_tint(
-        out, temp_shift=params.temp_shift, tint_shift=params.tint_shift,
+        out,
+        temp_shift=params.temp_shift,
+        tint_shift=params.tint_shift,
     )
     out = parametric_tone(out, params)
     if params.dehaze > 0:

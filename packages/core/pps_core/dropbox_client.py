@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from tqdm import tqdm
 
@@ -47,15 +47,12 @@ class DropboxClient:
         token = access_token or os.getenv("DROPBOX_ACCESS_TOKEN")
         if not token:
             raise DropboxError(
-                "Thiếu DROPBOX_ACCESS_TOKEN. Đặt vào .env hoặc env var, "
-                "không hardcode trong code."
+                "Thiếu DROPBOX_ACCESS_TOKEN. Đặt vào .env hoặc env var, không hardcode trong code."
             )
         try:
             import dropbox  # type: ignore
         except ImportError as exc:
-            raise DropboxError(
-                "Cần SDK 'dropbox'. Cài: pip install dropbox"
-            ) from exc
+            raise DropboxError("Cần SDK 'dropbox'. Cài: pip install dropbox") from exc
 
         self._dbx = dropbox.Dropbox(token, timeout=30)
         self._dropbox = dropbox
@@ -163,10 +160,12 @@ class DropboxClient:
                 raise  # lỗi nghiệp vụ, không retry
             except Exception as exc:  # network/timeouts/rate
                 last_exc = exc
-                wait = min(2 ** attempt, 15)
+                wait = min(2**attempt, 15)
                 logger.warning(
                     "Dropbox call lần %d lỗi: %s — chờ %ds",
-                    attempt, exc, wait,
+                    attempt,
+                    exc,
+                    wait,
                 )
                 time.sleep(wait)
         raise DropboxError(f"Hết retry: {last_exc}") from last_exc

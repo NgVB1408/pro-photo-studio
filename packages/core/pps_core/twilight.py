@@ -27,6 +27,7 @@ Khác bản tham khảo (`imagen-ai/backend/services/virtual_twilight.py`):
 API:
     transform_to_twilight(img, *, strength=0.85, seed=None) -> (out, info)
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,13 +42,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TwilightReport:
     applied: bool
-    sky_mask_pct: float = 0.0    # % pixel coi là sky
+    sky_mask_pct: float = 0.0  # % pixel coi là sky
     glow_windows_pct: float = 0.0  # % pixel có warm glow
     reason: str = ""
 
 
 def _sunset_gradient(
-    h: int, w: int, *, rng: np.random.Generator,
+    h: int,
+    w: int,
+    *,
+    rng: np.random.Generator,
     cloud_amount: float = 0.18,
 ) -> np.ndarray:
     """Generate sunset sky BGR uint8.
@@ -110,7 +114,8 @@ def _sunset_gradient(
 
 
 def _detect_window_glow_mask(
-    img: np.ndarray, exclude: np.ndarray | None = None,
+    img: np.ndarray,
+    exclude: np.ndarray | None = None,
 ) -> np.ndarray:
     """Tìm vùng cửa sổ bên trong building (bright + có cấu trúc khung).
 
@@ -215,13 +220,16 @@ def transform_to_twilight(
     try:
         if use_ai_sky:
             from .sky_seg_ai import detect_sky_mask_smart
+
             sky_mask = detect_sky_mask_smart(img)
         else:
             from .realestate import detect_sky_mask
+
             sky_mask = detect_sky_mask(img, refine=True)
     except Exception as exc:
         logger.warning("Twilight: sky detect fail (%s) — fallback heuristic", exc)
         from .realestate import detect_sky_mask
+
         sky_mask = detect_sky_mask(img, refine=True)
 
     sky_pct = float((sky_mask > 64).mean()) * 100.0
@@ -241,8 +249,7 @@ def transform_to_twilight(
     # 3. Composite sky
     alpha = (sky_mask.astype(np.float32) / 255.0)[..., None]
     alpha = np.clip(alpha * strength, 0, 1)
-    sky_composite = (img.astype(np.float32) * (1 - alpha) +
-                     sunset.astype(np.float32) * alpha)
+    sky_composite = img.astype(np.float32) * (1 - alpha) + sunset.astype(np.float32) * alpha
     out = np.clip(sky_composite, 0, 255).astype(np.uint8)
 
     # 4. Window glow
@@ -264,8 +271,7 @@ def transform_to_twilight(
         warmed = _apply_warm_tone(out, strength * 0.6)
         # Chỉ apply ngoài sky (giữ sky composite nguyên)
         non_sky = 1.0 - alpha
-        blend = (out.astype(np.float32) * alpha +
-                 warmed.astype(np.float32) * non_sky)
+        blend = out.astype(np.float32) * alpha + warmed.astype(np.float32) * non_sky
         out = np.clip(blend, 0, 255).astype(np.uint8)
 
     return out, TwilightReport(

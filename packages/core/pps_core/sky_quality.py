@@ -13,6 +13,7 @@ Pipeline:
 
 Tất cả CPU heuristic, không ML. Thresholds được calibrate trên ảnh BĐS thực.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,12 +28,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SkyQualityReport:
     is_beautiful: bool
-    category: str  # "golden_hour" | "twilight" | "dramatic_clouds" | "sunset" | "plain" | "boring_grey"
+    category: (
+        str  # "golden_hour" | "twilight" | "dramatic_clouds" | "sunset" | "plain" | "boring_grey"
+    )
     saturation_mean: float
     saturation_p90: float
-    hue_diversity: float    # std deviation hue (0..255 scale)
-    warm_ratio: float       # fraction of warm pixel (orange/pink/purple)
-    score: float            # 0..1 aesthetic score
+    hue_diversity: float  # std deviation hue (0..255 scale)
+    warm_ratio: float  # fraction of warm pixel (orange/pink/purple)
+    score: float  # 0..1 aesthetic score
     reason: str
 
 
@@ -42,7 +45,7 @@ class SkyQualityReport:
 # Warm pink/magenta: 145-179 + 0-10 (wraps)
 # Orange: 5-25
 # Yellow: 25-40
-WARM_HUE_RANGES = [(0, 25), (145, 179)]   # pink/orange/red — twilight/sunset
+WARM_HUE_RANGES = [(0, 25), (145, 179)]  # pink/orange/red — twilight/sunset
 COOL_BLUE_RANGE = (95, 130)
 
 
@@ -100,10 +103,14 @@ def is_sky_already_beautiful(
 
     if sample.shape[0] < 100:
         return SkyQualityReport(
-            is_beautiful=False, category="plain",
-            saturation_mean=0.0, saturation_p90=0.0,
-            hue_diversity=0.0, warm_ratio=0.0,
-            score=0.0, reason="too_few_pixels",
+            is_beautiful=False,
+            category="plain",
+            saturation_mean=0.0,
+            saturation_p90=0.0,
+            hue_diversity=0.0,
+            warm_ratio=0.0,
+            score=0.0,
+            reason="too_few_pixels",
         )
 
     hsv = cv2.cvtColor(sample, cv2.COLOR_BGR2HSV).reshape(-1, 3)
@@ -113,15 +120,19 @@ def is_sky_already_beautiful(
     valid = V >= 80
     if valid.sum() < 100:
         return SkyQualityReport(
-            is_beautiful=False, category="plain",
-            saturation_mean=0.0, saturation_p90=0.0,
-            hue_diversity=0.0, warm_ratio=0.0,
-            score=0.0, reason="too_dark",
+            is_beautiful=False,
+            category="plain",
+            saturation_mean=0.0,
+            saturation_p90=0.0,
+            hue_diversity=0.0,
+            warm_ratio=0.0,
+            score=0.0,
+            reason="too_dark",
         )
 
     H_v = H[valid]
     S_v = S[valid]
-    V_v = V[valid]
+    V[valid]
 
     sat_mean = float(S_v.mean())
     sat_p90 = float(np.percentile(S_v, 90))
@@ -131,7 +142,7 @@ def is_sky_already_beautiful(
     hue_rad = (H_v.astype(np.float32) / 180.0) * 2.0 * np.pi
     sin_mean = float(np.sin(hue_rad).mean())
     cos_mean = float(np.cos(hue_rad).mean())
-    R = np.sqrt(sin_mean ** 2 + cos_mean ** 2)  # mean resultant length
+    R = np.sqrt(sin_mean**2 + cos_mean**2)  # mean resultant length
     # circular variance = 1 - R, bound 0..1
     circular_var = 1.0 - R
     # Scale to 0..40 to match old "std deviation" feel
@@ -140,11 +151,7 @@ def is_sky_already_beautiful(
     warm_mask = _is_warm_hue(H_v) & (S_v >= 25)
     warm_ratio = float(warm_mask.sum()) / max(1, len(H_v))
 
-    blue_mask = (
-        (H_v >= COOL_BLUE_RANGE[0])
-        & (H_v <= COOL_BLUE_RANGE[1])
-        & (S_v >= 30)
-    )
+    blue_mask = (H_v >= COOL_BLUE_RANGE[0]) & (H_v <= COOL_BLUE_RANGE[1]) & (S_v >= 30)
     blue_ratio = float(blue_mask.sum()) / max(1, len(H_v))
 
     # ===== Categorization =====
@@ -154,11 +161,7 @@ def is_sky_already_beautiful(
     # Golden hour: warm dominant + sat đủ
     is_golden = warm_ratio >= 0.18 and sat_mean >= 35
     # Twilight: warm + cool gradient (hue diversity cao + có cả warm)
-    is_twilight = (
-        warm_ratio >= 0.08
-        and hue_diversity >= 14
-        and sat_mean >= 28
-    )
+    is_twilight = warm_ratio >= 0.08 and hue_diversity >= 14 and sat_mean >= 28
     # Dramatic clouds: variance cao + có texture
     is_dramatic = hue_diversity >= 20 and sat_p90 >= 50
     # Vibrant blue: hoàn toàn xanh nhưng saturation rất tốt
@@ -212,12 +215,13 @@ def is_sky_already_beautiful(
 # Warm indoor glow detection (lighting consistency)
 # ======================================================================
 
+
 @dataclass
 class IndoorGlowReport:
     has_warm_glow: bool
-    glow_ratio: float        # fraction of bright warm pixels (interior light)
-    avg_hue_glow: float      # mean hue (0..179) of warm bright clusters
-    suggests_time: str       # "twilight" | "evening" | "day" | "unknown"
+    glow_ratio: float  # fraction of bright warm pixels (interior light)
+    avg_hue_glow: float  # mean hue (0..179) of warm bright clusters
+    suggests_time: str  # "twilight" | "evening" | "day" | "unknown"
 
 
 def detect_warm_indoor_glow(
@@ -246,11 +250,7 @@ def detect_warm_indoor_glow(
     H, S, V = cv2.split(hsv)
 
     # Warm bright pixels: orange-yellow saturated bright
-    warm_glow = (
-        ((H <= 30) | (H >= 160))
-        & (S >= 50)
-        & (V >= 200)
-    )
+    warm_glow = ((H <= 30) | (H >= 160)) & (S >= 50) & (V >= 200)
 
     # Exclude sky region (sunset has warm sky too)
     if sky_mask is not None:
@@ -302,20 +302,20 @@ def detect_warm_indoor_glow(
 
 # Map preset name → time-of-day class
 _PRESET_TOD_MAP: dict[str, str] = {
-    "blue_clear":     "day",
-    "blue_clouds":    "day",
-    "overcast_soft":  "day",
-    "sunset_warm":    "evening",
-    "golden_hour":    "evening",
-    "twilight_blue":  "twilight",
-    "dramatic_storm": "any",      # storm có thể bất kỳ thời điểm
+    "blue_clear": "day",
+    "blue_clouds": "day",
+    "overcast_soft": "day",
+    "sunset_warm": "evening",
+    "golden_hour": "evening",
+    "twilight_blue": "twilight",
+    "dramatic_storm": "any",  # storm có thể bất kỳ thời điểm
 }
 
 
 @dataclass
 class SkyDecision:
-    action: str               # "skip" | "replace"
-    chosen_preset: str        # preset cuối cùng
+    action: str  # "skip" | "replace"
+    chosen_preset: str  # preset cuối cùng
     original_user_preset: str
     overridden: bool
     reason: str
@@ -348,7 +348,9 @@ def auto_decide_sky_action(
         SkyDecision với action + lý do.
     """
     quality = is_sky_already_beautiful(
-        img, sky_mask, min_score=min_beautiful_score,
+        img,
+        sky_mask,
+        min_score=min_beautiful_score,
     )
 
     # Path 1: sky đã đẹp → skip hoàn toàn
@@ -368,10 +370,7 @@ def auto_decide_sky_action(
     # Strong warm glow + user picked day preset → override
     if glow.has_warm_glow and glow.suggests_time in ("twilight", "evening"):
         if user_tod == "day":
-            new_preset = (
-                "twilight_blue" if glow.suggests_time == "twilight"
-                else "sunset_warm"
-            )
+            new_preset = "twilight_blue" if glow.suggests_time == "twilight" else "sunset_warm"
             return SkyDecision(
                 action="replace",
                 chosen_preset=new_preset,

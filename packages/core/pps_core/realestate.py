@@ -35,17 +35,17 @@ SceneTag = Literal["interior", "exterior", "aerial", "unknown"]
 
 # Map preset cũ → preset mới (sky_lib v2). Giữ tương thích ngược.
 _SKY_PRESET_MAP: dict[str, str] = {
-    "blue":      "blue_clouds",     # nâng cấp: gradient → có mây
-    "sunset":    "sunset_warm",
-    "overcast":  "overcast_soft",
-    "dramatic":  "dramatic_storm",
+    "blue": "blue_clouds",  # nâng cấp: gradient → có mây
+    "sunset": "sunset_warm",
+    "overcast": "overcast_soft",
+    "dramatic": "dramatic_storm",
     # Preset mới
-    "blue_clear":     "blue_clear",
-    "blue_clouds":    "blue_clouds",
-    "sunset_warm":    "sunset_warm",
-    "golden_hour":    "golden_hour",
+    "blue_clear": "blue_clear",
+    "blue_clouds": "blue_clouds",
+    "sunset_warm": "sunset_warm",
+    "golden_hour": "golden_hour",
     "dramatic_storm": "dramatic_storm",
-    "overcast_soft":  "overcast_soft",
+    "overcast_soft": "overcast_soft",
 }
 
 
@@ -61,7 +61,7 @@ def is_outdoor_scene(img: np.ndarray, *, min_blue_ratio: float = 0.03) -> tuple[
 
     Trả: (is_outdoor, debug_info_dict)
     """
-    h, w = img.shape[:2]
+    h, _w = img.shape[:2]
     info: dict = {}
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     H, S, V = cv2.split(hsv)
@@ -103,20 +103,16 @@ def is_outdoor_scene(img: np.ndarray, *, min_blue_ratio: float = 0.03) -> tuple[
 
     is_outdoor = path_blue or path_overcast
     info["is_outdoor"] = is_outdoor
-    info["reason"] = (
-        "blue_sky" if path_blue else
-        "overcast_sky" if path_overcast else
-        "indoor"
-    )
+    info["reason"] = "blue_sky" if path_blue else "overcast_sky" if path_overcast else "indoor"
     return is_outdoor, info
 
 
 def detect_sky_mask(
     img: np.ndarray,
     *,
-    saturation_max: int = 35,    # tighten 60 → 35 (avoid white walls)
-    value_min: int = 180,         # tighten 140 → 180
-    top_bias: float = 0.45,       # tighten 0.55 → 0.45
+    saturation_max: int = 35,  # tighten 60 → 35 (avoid white walls)
+    value_min: int = 180,  # tighten 140 → 180
+    top_bias: float = 0.45,  # tighten 0.55 → 0.45
     refine: bool = True,
     grabcut_refine: bool = True,
     alpha_matting: bool = True,
@@ -145,8 +141,11 @@ def detect_sky_mask(
     if require_outdoor:
         outdoor, info = is_outdoor_scene(img)
         if not outdoor:
-            logger.info("detect_sky_mask: indoor scene (top_blue=%.3f, edge=%.3f) — skip",
-                        info.get("top_blue_ratio", 0), info.get("edge_top_sky_ratio", 0))
+            logger.info(
+                "detect_sky_mask: indoor scene (top_blue=%.3f, edge=%.3f) — skip",
+                info.get("top_blue_ratio", 0),
+                info.get("edge_top_sky_ratio", 0),
+            )
             return np.zeros(img.shape[:2], dtype=np.uint8)
 
     h, w = img.shape[:2]
@@ -157,7 +156,7 @@ def detect_sky_mask(
     # Sky predominantly blue, OR very bright + truly desaturated (overcast)
     blue_hue = (H >= 95) & (H <= 135) & (V >= 130)
     bright_overcast = (S <= 20) & (V >= 200)  # very white sky
-    bright_low_sat = (S <= saturation_max) & (V >= value_min) & (H >= 80) & (H <= 140)
+    bright_low_sat = (saturation_max >= S) & (value_min <= V) & (H >= 80) & (H <= 140)
     sky_color = blue_hue | bright_overcast | bright_low_sat
 
     # Tier 2: Edge density check — sky có low edge density (loại tường gạch)
@@ -195,7 +194,7 @@ def detect_sky_mask(
     if grabcut_refine and keep.sum() > h * w * 0.02:
         try:
             keep = _grabcut_refine_mask(img, keep)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("GrabCut refine fail: %s — dùng mask gốc", exc)
 
     # Tier 5: Alpha matting on edges
@@ -228,11 +227,13 @@ def _grabcut_refine_mask(
     scale = min(1.0, 1080.0 / max(h, w))
     if scale < 1.0:
         small_img = cv2.resize(
-            img, (int(w * scale), int(h * scale)),
+            img,
+            (int(w * scale), int(h * scale)),
             interpolation=cv2.INTER_AREA,
         )
         small_mask = cv2.resize(
-            mask, (int(w * scale), int(h * scale)),
+            mask,
+            (int(w * scale), int(h * scale)),
             interpolation=cv2.INTER_NEAREST,
         )
     else:
@@ -252,14 +253,19 @@ def _grabcut_refine_mask(
 
     bgd_model = np.zeros((1, 65), np.float64)
     fgd_model = np.zeros((1, 65), np.float64)
-    cv2.grabCut(small_img, gc_mask, None, bgd_model, fgd_model,
-                iter_count, mode=cv2.GC_INIT_WITH_MASK)
+    cv2.grabCut(
+        small_img, gc_mask, None, bgd_model, fgd_model, iter_count, mode=cv2.GC_INIT_WITH_MASK
+    )
     refined = np.where(
-        (gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 255, 0,
+        (gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD),
+        255,
+        0,
     ).astype(np.uint8)
     if scale < 1.0:
         refined = cv2.resize(
-            refined, (w, h), interpolation=cv2.INTER_LINEAR,
+            refined,
+            (w, h),
+            interpolation=cv2.INTER_LINEAR,
         )
         # Re-binarize sau resize
         refined = ((refined > 128).astype(np.uint8)) * 255
@@ -278,7 +284,7 @@ def _alpha_matting_edges(
     Phương pháp: detect rìa mask → trong vùng rìa, tính alpha bằng
     closed-form-ish guided filter với image làm guide.
     """
-    h, w = img.shape[:2]
+    _h, _w = img.shape[:2]
     # Edge zone = vùng quanh boundary
     eroded = cv2.erode(binary_mask, np.ones((edge_radius, edge_radius), np.uint8))
     dilated = cv2.dilate(binary_mask, np.ones((edge_radius, edge_radius), np.uint8))
@@ -289,8 +295,7 @@ def _alpha_matting_edges(
         return cv2.GaussianBlur(binary_mask, (0, 0), sigmaX=feather_sigma)
 
     # Alpha base = Gaussian-blurred binary mask (continuous 0..1)
-    alpha = cv2.GaussianBlur(binary_mask.astype(np.float32) / 255.0,
-                              (0, 0), sigmaX=feather_sigma)
+    alpha = cv2.GaussianBlur(binary_mask.astype(np.float32) / 255.0, (0, 0), sigmaX=feather_sigma)
 
     # Edge-aware refinement: trong edge_zone, dùng guided filter với img làm guide
     # để alpha bám theo edge của ảnh (sky/cây/tóc).
@@ -298,15 +303,21 @@ def _alpha_matting_edges(
     # OpenCV ximgproc có guidedFilter — không phải mọi build có. Fallback box mean.
     try:
         from cv2 import ximgproc  # type: ignore
+
         alpha = ximgproc.guidedFilter(
-            guide=gray, src=alpha, radius=edge_radius, eps=1e-3,
+            guide=gray,
+            src=alpha,
+            radius=edge_radius,
+            eps=1e-3,
         )
     except (ImportError, AttributeError):
         # Fallback: bilateral filter alpha bằng image guide (gần đúng)
         alpha_u8 = (alpha * 255).astype(np.uint8)
         alpha_u8 = cv2.bilateralFilter(
-            alpha_u8, d=edge_radius * 2 + 1,
-            sigmaColor=30, sigmaSpace=edge_radius,
+            alpha_u8,
+            d=edge_radius * 2 + 1,
+            sigmaColor=30,
+            sigmaSpace=edge_radius,
         )
         alpha = alpha_u8.astype(np.float32) / 255.0
     return np.clip(alpha * 255.0, 0, 255).astype(np.uint8)
@@ -319,6 +330,7 @@ def _build_sky_gradient(h: int, w: int, preset: SkyPreset) -> np.ndarray:
     `sky_lib.generate_sky()` để có thêm tham số seed.
     """
     from .sky_lib import generate_sky
+
     new_preset = _SKY_PRESET_MAP.get(preset, preset)
     return generate_sky(h, w, preset=new_preset)
 
@@ -371,7 +383,9 @@ def replace_sky(
         (output BGR uint8, mask uint8 đã dùng).
     """
     from .sky_lib import (
-        generate_sky, match_sky_to_scene, cast_sky_color_on_glass,
+        cast_sky_color_on_glass,
+        generate_sky,
+        match_sky_to_scene,
     )
 
     h, w = img.shape[:2]
@@ -393,6 +407,7 @@ def replace_sky(
         # Thử load ảnh trời thật từ library
         try:
             from .sky_assets import load_sky_by_id, random_sky
+
             real = None
             if sky_id:
                 real = load_sky_by_id(sky_id)
@@ -402,13 +417,15 @@ def replace_sky(
                 if real is not None and entry:
                     logger.info(
                         "replace_sky: dùng ảnh trời thật %s (cat=%s)",
-                        entry["id"], entry["category"],
+                        entry["id"],
+                        entry["category"],
                     )
             if real is not None:
                 new_sky = cv2.resize(real, (w, h), interpolation=cv2.INTER_LANCZOS4)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
-                "Sky library lỗi (%s) — fallback procedural", exc,
+                "Sky library lỗi (%s) — fallback procedural",
+                exc,
             )
 
     if new_sky is None:
@@ -422,8 +439,9 @@ def replace_sky(
     # 1.5. Match light direction — flip sky asset nếu sun position mâu thuẫn
     try:
         from .sky_direction import match_sky_to_scene_direction
+
         new_sky = match_sky_to_scene_direction(new_sky, img)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.debug("sky direction match skipped: %s", exc)
 
     # 2. Match color temperature với scene
@@ -433,14 +451,19 @@ def replace_sky(
     # 3. Match luminance — sky brightness tương đồng vùng trời gốc
     sky_pixels = img[mask > 128]
     if len(sky_pixels) > 100:
-        target_v = float(cv2.cvtColor(
-            sky_pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2HSV,
-        )[..., 2].mean())
+        target_v = float(
+            cv2.cvtColor(
+                sky_pixels.reshape(-1, 1, 3),
+                cv2.COLOR_BGR2HSV,
+            )[..., 2].mean()
+        )
         new_v = float(cv2.cvtColor(new_sky, cv2.COLOR_BGR2HSV)[..., 2].mean())
         if new_v > 1:
             scale = np.clip((target_v / new_v) * 0.6 + 0.4, 0.6, 1.4)
             new_sky = np.clip(
-                new_sky.astype(np.float32) * scale, 0, 255,
+                new_sky.astype(np.float32) * scale,
+                0,
+                255,
             ).astype(np.uint8)
 
     # 4. Extend mask DOWN bằng dilate để cover horizon haze (sunset glow leak)
@@ -475,6 +498,7 @@ def replace_sky(
 # 2. WINDOW PULL (interior overexposed window recovery)
 # ======================================================================
 
+
 def detect_blown_windows(
     img: np.ndarray,
     *,
@@ -485,7 +509,7 @@ def detect_blown_windows(
     """Detect cửa sổ bị cháy trong ảnh nội thất."""
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     V = hsv[..., 2]
-    bright = (V >= value_threshold).astype(np.uint8) * 255
+    bright = (value_threshold <= V).astype(np.uint8) * 255
 
     h, w = img.shape[:2]
     total = h * w
@@ -539,6 +563,7 @@ def window_pull(
     if use_hdr:
         # HDR pipeline thật sự
         from .hdr import recover_blown_windows
+
         out, _ = recover_blown_windows(
             img,
             mode="bracket" if brackets else "single",
@@ -562,7 +587,8 @@ def window_pull(
     recovered_lab = cv2.cvtColor(recovered, cv2.COLOR_BGR2LAB).astype(np.float32)
     recovered_lab[..., 2] -= 6
     recovered = cv2.cvtColor(
-        np.clip(recovered_lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR,
+        np.clip(recovered_lab, 0, 255).astype(np.uint8),
+        cv2.COLOR_LAB2BGR,
     )
     alpha = (mask.astype(np.float32) / 255.0)[..., None]
     out = img.astype(np.float32) * (1 - alpha) + recovered.astype(np.float32) * alpha
@@ -572,6 +598,7 @@ def window_pull(
 # ======================================================================
 # 3. LAWN / GRASS ENHANCEMENT
 # ======================================================================
+
 
 def detect_lawn_mask(
     img: np.ndarray,
@@ -586,7 +613,7 @@ def detect_lawn_mask(
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     H, S, V = cv2.split(hsv)
 
-    green = (H >= hue_min) & (H <= hue_max) & (S >= sat_min) & (V >= 30) & (V <= 220)
+    green = (hue_min <= H) & (hue_max >= H) & (sat_min <= S) & (V >= 30) & (V <= 220)
 
     y_grid = np.arange(h, dtype=np.float32)[:, None] / h
     bottom_mask = y_grid >= bottom_bias
@@ -616,7 +643,7 @@ def enhance_lawn(
         return img.copy(), mask
 
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
-    alpha = (mask.astype(np.float32) / 255.0)
+    alpha = mask.astype(np.float32) / 255.0
 
     # Hue shift (toward richer green)
     hsv[..., 0] = (hsv[..., 0] + hue_shift * alpha) % 180
@@ -635,13 +662,14 @@ def enhance_lawn(
 # 4. VERTICAL / PERSPECTIVE CORRECTION
 # ======================================================================
 
+
 @dataclass
 class VerticalReport:
-    angle_deg: float       # tilt angle detected (positive = right tilt)
-    line_count: int        # number of vertical-ish lines used
-    rotated: bool          # whether correction was applied
-    upright_skew: float = 0.0           # skew áp dụng nếu dùng upright warp
-    upright_direction: str = ""          # "up"/"down" nếu warp perspective
+    angle_deg: float  # tilt angle detected (positive = right tilt)
+    line_count: int  # number of vertical-ish lines used
+    rotated: bool  # whether correction was applied
+    upright_skew: float = 0.0  # skew áp dụng nếu dùng upright warp
+    upright_direction: str = ""  # "up"/"down" nếu warp perspective
 
 
 def correct_vertical(
@@ -670,6 +698,7 @@ def correct_vertical(
     # ========== TIER 1: Perspective upright warp ==========
     if upright:
         from .perspective import correct_upright
+
         try:
             warped, report = correct_upright(img, max_skew=0.32, min_lines=8)
             if report.applied:
@@ -680,7 +709,7 @@ def correct_vertical(
                     upright_skew=report.skew,
                     upright_direction=report.direction,
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("upright fail: %s — fallback rotate 2D", exc)
 
     # ========== TIER 2: Rotate 2D fallback ==========
@@ -692,12 +721,9 @@ def correct_vertical(
         return img.copy(), VerticalReport(0.0, 0, False)
 
     angles = []
-    for rho, theta in lines[:, 0, :]:
+    for _rho, theta in lines[:, 0, :]:
         deg = np.degrees(theta)
-        if deg < 90:
-            tilt = deg
-        else:
-            tilt = deg - 180
+        tilt = deg if deg < 90 else deg - 180
         if abs(tilt) <= max_angle:
             angles.append(tilt)
 
@@ -710,7 +736,10 @@ def correct_vertical(
 
     M = cv2.getRotationMatrix2D((w / 2, h / 2), -median_tilt, 1.0)
     rotated = cv2.warpAffine(
-        img, M, (w, h), flags=cv2.INTER_LANCZOS4,
+        img,
+        M,
+        (w, h),
+        flags=cv2.INTER_LANCZOS4,
         borderMode=cv2.BORDER_REFLECT_101,
     )
 
@@ -723,7 +752,7 @@ def correct_vertical(
         new_h = max(new_h, int(h * 0.9))
         x0 = (w - new_w) // 2
         y0 = (h - new_h) // 2
-        rotated = rotated[y0:y0 + new_h, x0:x0 + new_w]
+        rotated = rotated[y0 : y0 + new_h, x0 : x0 + new_w]
 
     return rotated, VerticalReport(median_tilt, len(angles), True)
 
@@ -731,6 +760,7 @@ def correct_vertical(
 # ======================================================================
 # 5. SCENE CLASSIFICATION (interior / exterior / aerial)
 # ======================================================================
+
 
 @dataclass
 class SceneReport:
@@ -751,7 +781,7 @@ def classify_scene(img: np.ndarray) -> SceneReport:
       - avg brightness
       - edge density top-half (indoor có ceiling/đèn → density cao)
     """
-    h, w = img.shape[:2]
+    h, _w = img.shape[:2]
 
     sky = detect_sky_mask(img, refine=True)
     grass = detect_lawn_mask(img)
@@ -801,6 +831,7 @@ def classify_scene(img: np.ndarray) -> SceneReport:
 # COMPOSITE PIPELINE: tag-aware all-in-one
 # ======================================================================
 
+
 @dataclass
 class RealEstateReport:
     scene: SceneReport
@@ -808,8 +839,8 @@ class RealEstateReport:
     sky_replaced: bool
     windows_recovered: bool
     lawn_enhanced: bool
-    sky_decision: str = ""           # "skip:reason" | "replace:preset:reason"
-    sky_preset_used: str = ""        # preset cuối cùng dùng (sau auto-override)
+    sky_decision: str = ""  # "skip:reason" | "replace:preset:reason"
+    sky_preset_used: str = ""  # preset cuối cùng dùng (sau auto-override)
 
 
 def enhance_realestate_full(
@@ -871,8 +902,9 @@ def enhance_realestate_full(
         if use_ai_sky:
             try:
                 from .sky_seg_ai import detect_sky_mask_ai
+
                 sky_mask = detect_sky_mask_ai(out, fallback=True)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("AI sky fail: %s — fallback HSV", exc)
                 sky_mask = detect_sky_mask(out)
         else:
@@ -881,8 +913,11 @@ def enhance_realestate_full(
         # Smart decision: skip / replace + chọn preset
         if smart_sky_skip or smart_preset_override:
             from .sky_quality import auto_decide_sky_action
+
             decision = auto_decide_sky_action(
-                out, sky_mask, str(sky_preset),
+                out,
+                sky_mask,
+                str(sky_preset),
                 respect_user_preset=not smart_preset_override,
             )
             sky_decision_str = f"{decision.action}:{decision.chosen_preset}:{decision.reason}"
@@ -894,21 +929,26 @@ def enhance_realestate_full(
                 # sky_done = False (không replace)
             else:
                 # Replace với preset đã quyết
-                effective_preset = (
-                    decision.chosen_preset if smart_preset_override
-                    else sky_preset
-                )
+                effective_preset = decision.chosen_preset if smart_preset_override else sky_preset
                 sky_preset_used = effective_preset
                 out, _ = replace_sky(
-                    out, preset=effective_preset, sky_image=sky_image,
-                    blend_strength=sky_blend, mask=sky_mask, seed=seed,
+                    out,
+                    preset=effective_preset,
+                    sky_image=sky_image,
+                    blend_strength=sky_blend,
+                    mask=sky_mask,
+                    seed=seed,
                 )
                 sky_done = True
         else:
             # Disable smart logic — replace luôn
             out, _ = replace_sky(
-                out, preset=sky_preset, sky_image=sky_image,
-                blend_strength=sky_blend, mask=sky_mask, seed=seed,
+                out,
+                preset=sky_preset,
+                sky_image=sky_image,
+                blend_strength=sky_blend,
+                mask=sky_mask,
+                seed=seed,
             )
             sky_done = True
             sky_preset_used = sky_preset
@@ -923,6 +963,7 @@ def enhance_realestate_full(
     # nguyên trên tường trắng. Bước này fix điều đó.
     if enable_indoor_color and scene.tag == "interior":
         from .indoor_pro import enhance_interior_pro
+
         out, _ = enhance_interior_pro(
             out,
             wb_strength=indoor_wb_strength,
@@ -951,6 +992,7 @@ def enhance_realestate_full(
 # ======================================================================
 # IO helpers
 # ======================================================================
+
 
 def load_sky_from_path(path: str | Path) -> np.ndarray:
     """Load custom sky image (BGR uint8). Raises FileNotFoundError nếu sai path."""

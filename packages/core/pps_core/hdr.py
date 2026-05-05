@@ -18,10 +18,12 @@ API chính:
 - `recover_blown_windows(img, mask=None, mode='auto')` — wrapper detect
   cửa sổ cháy + áp pseudo-HDR + blend với original
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 import cv2
 import numpy as np
@@ -32,6 +34,7 @@ logger = logging.getLogger(__name__)
 # =====================================================================
 # 1. Bracket fusion (REAL HDR — pro workflow)
 # =====================================================================
+
 
 def color_normalize_brackets(
     images: Sequence[np.ndarray],
@@ -104,10 +107,7 @@ def compute_deghost_mask(
 
     ys = []
     for im in images:
-        if im.ndim == 3:
-            y = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-        else:
-            y = im
+        y = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY) if im.ndim == 3 else im
         ys.append(y.astype(np.float32))
     stack = np.stack(ys, axis=0)  # (T, H, W)
 
@@ -162,7 +162,10 @@ def fuse_brackets(
         if im.shape[:2] != (h0, w0):
             logger.warning(
                 "Ảnh %d size %s khác ảnh đầu %dx%d — resize",
-                i, im.shape[:2], h0, w0,
+                i,
+                im.shape[:2],
+                h0,
+                w0,
             )
             im = cv2.resize(im, (w0, h0), interpolation=cv2.INTER_LANCZOS4)
         if im.ndim == 2:
@@ -190,8 +193,7 @@ def fuse_brackets(
         # Ở vùng ghost, replace với reference frame để tránh blend artifacts
         ref = aligned[max(0, min(reference_index, len(aligned) - 1))]
         alpha = ghost_mask[..., None]
-        blended = (fused.astype(np.float32) * (1 - alpha) +
-                   ref.astype(np.float32) * alpha)
+        blended = fused.astype(np.float32) * (1 - alpha) + ref.astype(np.float32) * alpha
         fused = np.clip(blended, 0, 255).astype(np.uint8)
     return fused
 
@@ -227,11 +229,12 @@ def align_brackets(
                 gray.astype(np.float32) / 255.0,
                 warp_matrix,
                 cv2.MOTION_EUCLIDEAN,
-                criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-                          200, 1e-5),
+                criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-5),
             )
             warped = cv2.warpAffine(
-                im, warp_matrix, (im.shape[1], im.shape[0]),
+                im,
+                warp_matrix,
+                (im.shape[1], im.shape[0]),
                 flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP,
                 borderMode=cv2.BORDER_REFLECT_101,
             )
@@ -245,6 +248,7 @@ def align_brackets(
 # =====================================================================
 # 2. Pseudo-HDR từ 1 ảnh (synthesize bracket → fuse)
 # =====================================================================
+
 
 def synthesize_bracket(
     img: np.ndarray,
@@ -305,6 +309,7 @@ def pseudo_hdr_single(
 # 3. Recover blown windows — wrapper áp dụng có chọn lọc lên vùng cháy
 # =====================================================================
 
+
 def detect_blown_areas(
     img: np.ndarray,
     *,
@@ -361,7 +366,7 @@ def recover_blown_windows(
     Returns:
         (output BGR uint8, info dict {mode, blown_pct, fused})
     """
-    h, w = img.shape[:2]
+    _h, _w = img.shape[:2]
     info: dict = {"mode": mode, "fused": False, "blown_pct": 0.0}
 
     # Quyết định mode thật sự
@@ -370,7 +375,7 @@ def recover_blown_windows(
     if use_bracket:
         if not brackets:
             raise ValueError("Mode bracket cần ít nhất 1 ảnh thêm trong `brackets`")
-        all_imgs = [img] + list(brackets)
+        all_imgs = [img, *list(brackets)]
         if align:
             all_imgs = align_brackets(all_imgs, method="mtb")
         fused = fuse_brackets(all_imgs)
@@ -394,8 +399,7 @@ def recover_blown_windows(
         info["mask_used"] = "global"
     else:
         alpha = (mask.astype(np.float32) / 255.0 * strength)[..., None]
-        out = (img.astype(np.float32) * (1 - alpha) +
-               fused.astype(np.float32) * alpha)
+        out = img.astype(np.float32) * (1 - alpha) + fused.astype(np.float32) * alpha
         out = np.clip(out, 0, 255).astype(np.uint8)
         info["mask_used"] = "blown_windows"
 

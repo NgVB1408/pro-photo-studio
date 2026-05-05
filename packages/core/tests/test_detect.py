@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-
 from pps_core.detect import (
     auto_mask,
     detect_bright_logo,
@@ -14,9 +13,14 @@ def _gradient_with_white_logo(h=200, w=300):
     for y in range(h):
         img[y, :] = (50 + y // 4, 80 + y // 5, 120 - y // 6)
     cv2.putText(
-        img, "LOGO",
-        (w - 110, h - 20), cv2.FONT_HERSHEY_DUPLEX, 1.0,
-        (255, 255, 255), 2, cv2.LINE_AA,
+        img,
+        "LOGO",
+        (w - 110, h - 20),
+        cv2.FONT_HERSHEY_DUPLEX,
+        1.0,
+        (255, 255, 255),
+        2,
+        cv2.LINE_AA,
     )
     return img
 

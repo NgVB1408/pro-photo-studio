@@ -1,11 +1,8 @@
 import sys
 import types
-from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
-
-from pps_core.inpaint import resolve_device, SUPPORTED_LAMA_MODELS
+from pps_core.inpaint import SUPPORTED_LAMA_MODELS, resolve_device
 
 
 def test_supported_models_include_main_ones():
@@ -57,5 +54,6 @@ def test_resolve_device_auto_mps_available(monkeypatch):
 
 def test_invalid_lama_model_raises():
     from pps_core.inpaint import _load_lama
+
     with pytest.raises(ValueError):
         _load_lama("cpu", model_name="nonexistent")

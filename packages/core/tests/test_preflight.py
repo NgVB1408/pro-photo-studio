@@ -1,14 +1,13 @@
 """Tests for preflight QC module."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
-
 from pps_core.preflight import (
-    analyze_image,
-    PreflightReport,
     BLUR_FAIL,
     BLUR_WARN,
+    PreflightReport,
+    analyze_image,
 )
 
 
@@ -24,9 +23,9 @@ def _sharp_image(h: int = 1200, w: int = 1800) -> np.ndarray:
     for i in range(0, h, 16):
         for j in range(0, w, 16):
             if (i + j) // 16 % 2 == 0:
-                img[i:i+16, j:j+16] = (200, 200, 200)
+                img[i : i + 16, j : j + 16] = (200, 200, 200)
     # Thêm vài ô màu để có saturation
-    img[40:100, 40:100] = (60, 30, 200)   # đỏ
+    img[40:100, 40:100] = (60, 30, 200)  # đỏ
     img[140:200, 140:200] = (50, 200, 80)  # xanh
     return img
 
@@ -43,6 +42,7 @@ def test_sharp_image_passes():
 def test_blurry_image_flagged_fail():
     """Gaussian blur mạnh → blur_score giảm rõ → fail."""
     import cv2
+
     img = _sharp_image()
     img = cv2.GaussianBlur(img, (101, 101), sigmaX=30)
     rpt = analyze_image(img)

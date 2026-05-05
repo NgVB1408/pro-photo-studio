@@ -1,8 +1,7 @@
 """Tests for realestate.py — sky/window/lawn/vertical/classify."""
+
 import cv2
 import numpy as np
-import pytest
-
 from pps_core.realestate import (
     classify_scene,
     correct_vertical,
@@ -15,8 +14,8 @@ from pps_core.realestate import (
     window_pull,
 )
 
-
 # ---- Synthetic image builders ----
+
 
 def _exterior_with_sky_and_grass(h=400, w=600):
     """Top half = blue sky, bottom = green grass, middle band = building."""
@@ -50,12 +49,15 @@ def _tilted_image(angle: float, h=400, w=600):
         cv2.line(img, (x, 20), (x, h - 20), (0, 0, 0), 4)
     M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
     return cv2.warpAffine(
-        img, M, (w, h),
+        img,
+        M,
+        (w, h),
         borderValue=(200, 200, 200),
     )
 
 
 # ---- detect_sky_mask ----
+
 
 def test_detect_sky_mask_finds_top_band():
     img = _exterior_with_sky_and_grass()
@@ -75,9 +77,10 @@ def test_detect_sky_mask_empty_for_dark():
 
 # ---- replace_sky ----
 
+
 def test_replace_sky_changes_top_band_only():
     img = _exterior_with_sky_and_grass()
-    out, mask = replace_sky(img, preset="sunset", blend_strength=1.0, feather=5)
+    out, _mask = replace_sky(img, preset="sunset", blend_strength=1.0, feather=5)
     assert out.shape == img.shape
     # Top should differ (sky was replaced)
     diff_top = np.abs(out[:50].astype(int) - img[:50].astype(int)).mean()
@@ -105,6 +108,7 @@ def test_replace_sky_no_sky_returns_original():
 
 # ---- detect_blown_windows + window_pull ----
 
+
 def test_detect_blown_windows_finds_bright_rect():
     img = _interior_with_blown_window()
     mask = detect_blown_windows(img, value_threshold=240)
@@ -115,7 +119,7 @@ def test_detect_blown_windows_finds_bright_rect():
 
 def test_window_pull_darkens_bright_region():
     img = _interior_with_blown_window()
-    out, mask = window_pull(img, strength=0.8)
+    out, _mask = window_pull(img, strength=0.8)
     assert out.shape == img.shape
     # Window region average V should drop
     win_orig = img[120:240, 280:400].mean()
@@ -124,6 +128,7 @@ def test_window_pull_darkens_bright_region():
 
 
 # ---- detect_lawn_mask + enhance_lawn ----
+
 
 def test_detect_lawn_mask_finds_bottom_green():
     img = _exterior_with_sky_and_grass()
@@ -136,7 +141,7 @@ def test_detect_lawn_mask_finds_bottom_green():
 
 def test_enhance_lawn_boosts_saturation():
     img = _exterior_with_sky_and_grass()
-    out, mask = enhance_lawn(img, sat_boost=0.6)
+    out, _mask = enhance_lawn(img, sat_boost=0.6)
     # Compare HSV S channel in lawn region
     s_orig = cv2.cvtColor(img[-50:], cv2.COLOR_BGR2HSV)[..., 1].mean()
     s_out = cv2.cvtColor(out[-50:], cv2.COLOR_BGR2HSV)[..., 1].mean()
@@ -144,6 +149,7 @@ def test_enhance_lawn_boosts_saturation():
 
 
 # ---- correct_vertical ----
+
 
 def test_correct_vertical_detects_tilt():
     img = _tilted_image(angle=3.0)
@@ -163,6 +169,7 @@ def test_correct_vertical_no_tilt_returns_original():
 
 # ---- classify_scene ----
 
+
 def test_classify_exterior():
     img = _exterior_with_sky_and_grass()
     report = classify_scene(img)
@@ -180,12 +187,15 @@ def test_classify_interior():
 
 # ---- enhance_realestate_full (composite) ----
 
+
 def test_enhance_realestate_full_exterior():
     img = _exterior_with_sky_and_grass()
     # Disable smart_sky_skip — synthetic test sky là vibrant blue saturated nên
     # smart skip sẽ giữ nguyên (đúng pipeline). Force replace để test path replace.
     out, report = enhance_realestate_full(
-        img, sky_preset="blue", smart_sky_skip=False,
+        img,
+        sky_preset="blue",
+        smart_sky_skip=False,
     )
     assert out.shape[:2] != (0, 0)
     assert report.scene.tag in ("exterior", "aerial")
@@ -196,8 +206,10 @@ def test_enhance_realestate_full_exterior():
 def test_enhance_realestate_full_smart_skip_beautiful_sky():
     """Smart skip path: vibrant blue test sky → not replaced."""
     img = _exterior_with_sky_and_grass()
-    out, report = enhance_realestate_full(
-        img, sky_preset="blue", smart_sky_skip=True,
+    _out, report = enhance_realestate_full(
+        img,
+        sky_preset="blue",
+        smart_sky_skip=True,
     )
     # Vibrant test sky → smart logic should skip
     assert report.sky_replaced is False
@@ -207,7 +219,7 @@ def test_enhance_realestate_full_smart_skip_beautiful_sky():
 
 def test_enhance_realestate_full_interior_no_sky():
     img = _interior_with_blown_window()
-    out, report = enhance_realestate_full(img)
+    _out, report = enhance_realestate_full(img)
     # Should NOT replace sky (interior tag)
     assert report.sky_replaced is False
 

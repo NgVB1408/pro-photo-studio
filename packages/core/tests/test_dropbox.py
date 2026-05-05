@@ -48,6 +48,7 @@ def test_missing_token_raises(monkeypatch):
     monkeypatch.delenv("DROPBOX_ACCESS_TOKEN", raising=False)
     _install_fake_dropbox(monkeypatch)
     from pps_core.dropbox_client import DropboxClient, DropboxError
+
     with pytest.raises(DropboxError, match="DROPBOX_ACCESS_TOKEN"):
         DropboxClient()
 
@@ -100,7 +101,7 @@ def test_list_folder_paginates(monkeypatch):
 
 
 def test_download_writes_file(monkeypatch, tmp_path):
-    fake = _install_fake_dropbox(monkeypatch)
+    _install_fake_dropbox(monkeypatch)
     from pps_core.dropbox_client import DropboxClient
 
     metadata = MagicMock(size=4)

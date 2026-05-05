@@ -62,7 +62,7 @@ def detect_bright_logo(
     min_blob_area: int = 50,
 ) -> np.ndarray:
     """Logo trắng/sáng-pastel: pixel V cao + S thấp (ít màu)."""
-    h, w = image.shape[:2]
+    _h, _w = image.shape[:2]
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     bright = hsv[..., 2] >= brightness_threshold
     desat = hsv[..., 1] <= saturation_threshold
@@ -123,7 +123,7 @@ def detect_corner_logo(
     saturated = cv2.morphologyEx(saturated, cv2.MORPH_OPEN, kernel, iterations=1)
     saturated = cv2.morphologyEx(saturated, cv2.MORPH_CLOSE, kernel, iterations=2)
 
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(saturated, connectivity=8)
+    n, _labels, stats, _ = cv2.connectedComponentsWithStats(saturated, connectivity=8)
     full = np.zeros((h, w), dtype=np.uint8)
 
     if n <= 1:
@@ -173,7 +173,7 @@ def detect_corner_logo(
 
     # Lấy candidate lớn nhất (logo thường là cluster saturated lớn nhất chạm edge)
     candidates.sort(key=lambda t: -t[0])
-    _, idx, bx_local, by_local, bw_local, bh_local = candidates[0]
+    _, _idx, bx_local, by_local, bw_local, bh_local = candidates[0]
 
     # Bbox tuyệt đối của cluster + padding rộng để cover rounded corner + viền soft
     abs_x0 = max(0, x0 + bx_local - pad_px)
@@ -252,10 +252,7 @@ def _filter_by_geometry(
             y0 = stats[i, cv2.CC_STAT_TOP]
             x1 = x0 + bw
             y1 = y0 + bh
-            in_border = (
-                x0 < border or y0 < border
-                or x1 > w - border or y1 > h - border
-            )
+            in_border = x0 < border or y0 < border or x1 > w - border or y1 > h - border
             if not in_border:
                 continue
         out[labels == i] = 255
@@ -275,15 +272,16 @@ def auto_mask(
     if image.shape[2] == 4:
         image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
     if strategy not in _ALLOWED_STRATEGIES:
-        raise ValueError(
-            f"strategy phải thuộc {sorted(_ALLOWED_STRATEGIES)}, nhận {strategy!r}"
-        )
+        raise ValueError(f"strategy phải thuộc {sorted(_ALLOWED_STRATEGIES)}, nhận {strategy!r}")
 
     masks = []
     if strategy in ("text", "auto"):
         m = detect_text_mser(image)
         m = _filter_by_geometry(
-            m, min_area=80, min_aspect=0.1, max_aspect=15,
+            m,
+            min_area=80,
+            min_aspect=0.1,
+            max_aspect=15,
             border_only=border_only,
         )
         masks.append(m)
@@ -291,7 +289,9 @@ def auto_mask(
     if strategy in ("bright", "auto"):
         m = detect_bright_logo(image)
         m = _filter_by_geometry(
-            m, min_area=100, border_only=border_only,
+            m,
+            min_area=100,
+            border_only=border_only,
         )
         masks.append(m)
         logger.debug("bright-logo pixels: %d", int((m > 0).sum()))
@@ -305,7 +305,9 @@ def auto_mask(
     if strategy in ("edge", "auto"):
         m = detect_edge_anomaly(image)
         m = _filter_by_geometry(
-            m, min_area=200, border_only=border_only,
+            m,
+            min_area=200,
+            border_only=border_only,
         )
         masks.append(m)
         logger.debug("edge-anomaly pixels: %d", int((m > 0).sum()))
