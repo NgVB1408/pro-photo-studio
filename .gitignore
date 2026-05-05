@@ -81,6 +81,10 @@ output/
 outputs/
 results/
 
+# Investor / demo artifact dumps (regenerable from scripts/)
+investor_showcase/
+!investor_showcase/INDEX.md
+
 # Docker
 docker-compose.override.yml
 
