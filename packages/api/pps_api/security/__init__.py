@@ -12,6 +12,7 @@ from .api_key import (
     require_api_key,
     verify_api_key,
 )
+from .optional_auth import maybe_require_api_key
 
 __all__ = [
     "APIKey",
@@ -20,6 +21,7 @@ __all__ = [
     "InMemoryAPIKeyStore",
     "generate_api_key",
     "hash_api_key",
+    "maybe_require_api_key",
     "require_api_key",
     "verify_api_key",
 ]

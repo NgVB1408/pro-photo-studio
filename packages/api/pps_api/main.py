@@ -56,14 +56,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — locked down in production by APP_ALLOWED_ORIGINS env (TBD).
-    allowed_origins = ["*"] if not settings.is_production() else []
+    # CORS — wildcard in dev, explicit allowlist via PPS_ALLOWED_ORIGINS in prod.
+    # When credentials are passed we cannot use "*"; only allow credentials when
+    # an explicit allowlist is set so the browser-side fetch can include cookies.
+    allowed_origins = settings.cors_origins()
+    allow_credentials = bool(allowed_origins) and "*" not in allowed_origins
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=allow_credentials,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+        expose_headers=["X-Request-Id"],
     )
 
     @app.get("/health", response_model=HealthResponse, status_code=status.HTTP_200_OK)

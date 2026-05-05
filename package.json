@@ -1,0 +1,16 @@
+{
+  "name": "pro-photo-studio",
+  "private": true,
+  "description": "Pro Photo Studio monorepo — workspace root.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "web:dev": "pnpm --filter @pps/web dev",
+    "web:build": "pnpm --filter @pps/web build",
+    "web:start": "pnpm --filter @pps/web start",
+    "web:lint": "pnpm --filter @pps/web lint",
+    "web:typecheck": "pnpm --filter @pps/web typecheck"
+  }
+}

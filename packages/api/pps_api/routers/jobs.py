@@ -42,6 +42,7 @@ from pps_core.types import Job
 from pydantic import ValidationError
 
 from pps_api.schemas import JobCreate, JobOut, JobStatus, ReportOut, StageReportOut
+from pps_api.security import maybe_require_api_key
 from pps_api.services import (
     InMemoryJobStore,
     JobRecord,
@@ -49,7 +50,11 @@ from pps_api.services import (
     run_pipeline_for_job,
 )
 
-router = APIRouter(prefix="/v1/jobs", tags=["jobs"])
+router = APIRouter(
+    prefix="/v1/jobs",
+    tags=["jobs"],
+    dependencies=[Depends(maybe_require_api_key)],
+)
 
 
 # -- Dependency injection -----------------------------------------------------

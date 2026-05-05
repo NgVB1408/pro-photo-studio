@@ -60,8 +60,37 @@ class Settings(BaseSettings):
     slack_webhook_url: str | None = None
     sentry_dsn: str | None = None
 
+    # CORS — comma-separated origins. Empty in production = lock everything down.
+    # Example: "https://portal.propho.studio,https://www.propho.studio"
+    pps_allowed_origins: str = ""
+
+    # When true, /v1/jobs/* requires X-API-Key. Default true in production, false
+    # elsewhere — tests and local dev should not need to mint a key on every run.
+    pps_require_api_key: bool | None = None
+
     def is_production(self) -> bool:
         return self.pps_env == "production"
+
+    def require_api_key(self) -> bool:
+        """Resolve auth requirement.
+
+        Explicit env override wins. Otherwise: production = required, others = open.
+        """
+        if self.pps_require_api_key is not None:
+            return self.pps_require_api_key
+        return self.is_production()
+
+    def cors_origins(self) -> list[str]:
+        """Resolve allowed CORS origins.
+
+        Development → wildcard for ergonomics. Production → only the origins
+        explicitly listed in ``PPS_ALLOWED_ORIGINS``. An empty value in
+        production means no browser may call the API directly (server-to-server
+        only via API key), which is fine when a Next.js portal proxies requests.
+        """
+        if not self.is_production():
+            return ["*"]
+        return [o.strip() for o in self.pps_allowed_origins.split(",") if o.strip()]
 
 
 @lru_cache(maxsize=1)

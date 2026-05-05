@@ -129,3 +129,43 @@ jobs:
 
       - name: Run E2E tests
         run: uv run pytest packages/api/tests --tb=short -ra
+
+  web:
+    name: Web (Next.js 15)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (biome)
+        working-directory: packages/web
+        run: pnpm lint
+        continue-on-error: true  # biome is advisory until baseline is set
+
+      - name: Type check
+        working-directory: packages/web
+        run: pnpm typecheck
+
+      - name: Build
+        working-directory: packages/web
+        env:
+          # Build-time env so Next can compile pages that reference env at module load.
+          # Actual key is bound at runtime in the deploy environment.
+          PPS_API_URL: http://localhost:8000
+          PPS_API_KEY: pps_dev_ci_build_only_not_a_secret_xxxxxxxx
+        run: pnpm build
