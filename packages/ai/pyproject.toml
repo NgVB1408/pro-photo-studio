@@ -22,11 +22,12 @@ dependencies = [
 
 [project.optional-dependencies]
 sam2 = ["segment-anything-2>=1.0"]
-lama = ["iopaint>=1.5"]
+# Note: lama-cleaner / iopaint pin huggingface-hub==0.25.2 which conflicts
+# with the >=0.26 required by transformers/diffusers. We integrate LaMa via
+# direct ONNX runtime instead — see packages/ai/pps_ai/lama/ (Phase 3).
 upscale-ncnn = ["realesrgan-ncnn-vulkan-python>=2.0"]
 all = [
     "segment-anything-2>=1.0",
-    "iopaint>=1.5",
     "realesrgan-ncnn-vulkan-python>=2.0",
 ]
 

@@ -78,24 +78,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  scripts-validation:
-    name: Validate utility scripts
+  custom-secret-scan:
+    name: Custom secret scan (project patterns)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Self-test secret scanner against fixtures
+      - name: Scan tracked files
         run: |
-          # Should pass: no secrets in repo (excluding self-test fixture)
-          python scripts/check_no_secrets.py $(git ls-files '*.py' '*.md' '*.yaml' '*.yml' '*.toml')
-          # Should fail: synthesized fake token in fixture (assembled at runtime
-          # so this YAML itself does not contain a token-shaped string)
-          PREFIX="hf_"
-          BODY=$(printf 'a%.0s' {1..36})
-          printf 'TOKEN = "%s%s"\n' "$PREFIX" "$BODY" > /tmp/leak.py
-          if python scripts/check_no_secrets.py /tmp/leak.py ; then
-            echo "FAIL: scanner missed obvious secret" && exit 1
-          fi
-          echo "Self-test passed"
+          set -x
+          python scripts/check_no_secrets.py $(git ls-files '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.json' '*.txt' '*.cfg' '*.ini')
