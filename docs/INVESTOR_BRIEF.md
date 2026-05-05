@@ -1,6 +1,6 @@
 # Pro Photo Studio — Tóm tắt chức năng
 
-**Sản phẩm:** Nền tảng nâng cấp ảnh BĐS production-grade · cạnh tranh AutoEnhance.ai + Imagen-AI
+**Positioning:** Không cố thắng vendor (AutoEnhance, Manuka) ở color enhance — đó là table stakes, ai cũng làm được. Wedge là **3 feature AI thế hệ mới** mà vendor hiện tại chưa có: Virtual Staging, Multi-angle Synthesis, Instruction Editing.
 **Repo:** github.com/NgVB1408/pro-photo-studio (private) · **License:** Apache 2.0
 **Ngày báo cáo:** 5/5/2026
 
@@ -46,12 +46,13 @@
 
 | Tuần | Chức năng | Cần |
 |---|---|---|
-| 3 | **AI Upscale x2/x4** (SUPIR — SOTA 2025) | GPU credit |
-| 3 | **Instruction edit** ("brighten kitchen") qua Qwen-Image-Lightning | GPU credit |
-| 3 | **Click-mask object removal** (SAM 2 + LaMa) | GPU credit |
-| 3 | **AI sky replace** (ControlNet LoRA) thay procedural | GPU credit |
-| 4 | **Virtual staging** (phòng trống → có nội thất) — feature mới | GPU credit |
-| 4 | **Multi-angle synthesis** (1 ảnh → nhiều góc) — feature mới | GPU credit |
+| **0** | **Manual PoC ngay**: 3 cặp before/after thật trên Colab (60 phút) | — đã có notebook trong Drive |
+| 3 | **Automate Instruction edit** vào pipeline | GPU credit |
+| 3 | **Automate AI Upscale SUPIR x2/x4** (SOTA 2025) | GPU credit |
+| 3 | **Automate Click-mask object removal** (SAM 2 + LaMa) | GPU credit |
+| 3 | **Automate AI sky replace** (ControlNet LoRA) | GPU credit |
+| 4 | **Automate Virtual staging** vào pipeline | GPU credit |
+| 4 | **Automate Multi-angle synthesis** vào pipeline | GPU credit |
 | 5 | **Web portal Next.js 15** (upload + preview + billing) | — |
 | 6 | **Stripe billing** (per-image credits) | Stripe account |
 | 6 | **Deploy production** (Docker + K8s + RunPod GPU autoscale) | — |
@@ -59,11 +60,15 @@
 
 ---
 
-## 3 chức năng đối thủ KHÔNG có
+## 3 chức năng đối thủ KHÔNG có (THE wedge)
 
-1. **Virtual staging** — phòng trống → có nội thất (SD3.5 + IPAdapter)
-2. **Multi-angle synthesis** — 1 ảnh → nhiều góc nhìn (Qwen-Edit-2509)
-3. **Instruction edit ngôn ngữ tự nhiên** — "làm sáng nhà bếp", "xóa người trong gương"
+1. **Virtual staging** — phòng trống → có nội thất (SD3.5 + IPAdapter) · **$25-50/ảnh, conversion 3x**
+2. **Multi-angle synthesis** — 1 ảnh → 3 góc nhìn (Qwen-Edit-2509) · **$15-40/ảnh listing**
+3. **Instruction edit ngôn ngữ tự nhiên** — "làm sáng nhà bếp", "xóa phản chiếu trong gương" (Qwen-Image-Lightning) · **$5-20/edit, UX cực kỳ khác biệt**
+
+→ ARPU PPS v2 ≈ **$80-200/listing** (10 ảnh) vs **$15-30/listing** competitor.
+
+→ Demo NĐT thật: làm theo `MANUAL_ML_DEMO_GUIDE.md` — 60 phút Colab cho 3 cặp before/after thật trên 2 hero photo, không cần chờ Phase 3 automation.
 
 ---
 

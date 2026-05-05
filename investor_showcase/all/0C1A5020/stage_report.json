@@ -1,0 +1,20 @@
+[
+  {
+    "name": "perspective",
+    "applied": false,
+    "duration_ms": 38.3,
+    "reason": "Ch\u1ec9 c\u00f3 0 vertical line (c\u1ea7n \u226512)"
+  },
+  {
+    "name": "real_estate",
+    "applied": true,
+    "duration_ms": 350.7,
+    "reason": "interior"
+  },
+  {
+    "name": "enhance_studio",
+    "applied": true,
+    "duration_ms": 1046.8,
+    "reason": ""
+  }
+]
