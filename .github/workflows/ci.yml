@@ -93,3 +93,37 @@ jobs:
         run: |
           set -x
           python scripts/check_no_secrets.py $(git ls-files '*.py' '*.md' '*.yaml' '*.yml' '*.toml' '*.json' '*.txt' '*.cfg' '*.ini')
+
+  api:
+    name: API (Python ${{ matrix.python }} on ubuntu-latest)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install pps-core + pps-api + dev tools
+        run: |
+          uv venv
+          uv pip install -e packages/core
+          uv pip install -e packages/api
+          uv pip install pytest httpx ruff
+
+      - name: Lint (ruff)
+        run: uv run ruff check packages/api
+
+      - name: Run E2E tests
+        run: uv run pytest packages/api/tests --tb=short -ra

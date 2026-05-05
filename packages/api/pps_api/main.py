@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated, AsyncIterator
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -69,10 +70,13 @@ def create_app() -> FastAPI:
     async def health(s: Annotated[Settings, Depends(get_settings)]) -> HealthResponse:
         return HealthResponse(status="ok", version=__version__, env=s.pps_env)
 
-    # TODO(phase-2): register routers from pps_api.routers
-    # app.include_router(jobs.router, prefix="/v1/jobs", tags=["jobs"])
-    # app.include_router(uploads.router, prefix="/v1/uploads", tags=["uploads"])
-    # app.include_router(webhooks.router, prefix="/v1/webhooks", tags=["webhooks"])
+    # Register built-in pipeline stages so the API has something to run on
+    # day one. ML-backed stages register themselves only when pps_ai is
+    # imported, which we leave to the deployment to opt into.
+    from pps_api.routers import jobs as jobs_router
+    from pps_api.stages import builtin_stages  # noqa: F401  (registration via import)
+
+    app.include_router(jobs_router.router)
 
     return app
 
