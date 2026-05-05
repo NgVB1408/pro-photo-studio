@@ -117,7 +117,7 @@ jobs:
           uv venv
           uv pip install -e packages/core
           uv pip install -e packages/api
-          uv pip install pytest httpx ruff
+          uv pip install pytest pytest-asyncio httpx argon2-cffi ruff
 
       - name: Lint (ruff)
         run: uv run ruff check packages/api
