@@ -1,0 +1,35 @@
+{
+  "verdict": "review",
+  "overall_score": 0.719,
+  "question_scores": {
+    "Q1_halo_window_corners": 1.0,
+    "Q2_ceiling_neutrality": 1.0,
+    "Q3_move_in_feel": 0.803
+  },
+  "sop_scores": {
+    "verticals_90deg": 0.85,
+    "lens_distortion_residual": 0.4,
+    "sharpness_uniformity": 0.403,
+    "shadow_noise": 1.0,
+    "consistency_vs_input": 0.102
+  },
+  "stage_durations_s": {
+    "geometry": 0.006,
+    "lightblend": 0.145,
+    "microcontrast": 0.756,
+    "cleanup": 0.006,
+    "output": 0.011
+  },
+  "analyze_duration_s": 0.252,
+  "apply_duration_s": 0.926,
+  "total_duration_s": 1.387,
+  "skipped_stages": [],
+  "findings": [
+    "Sharpness không đều — vùng tiền cảnh nhoè hoặc hậu cảnh quá gắt.",
+    "Khác xa ảnh gốc về tổng thể (PSNR thấp); nguy cơ over-process."
+  ],
+  "recommendations": [
+    "Hạ saliency_sharpen amount xuống 0.4; tăng saliency_blur 71.",
+    "Hạ texture macro band 0.18→0.10; reduce dehaze 0.5x."
+  ]
+}

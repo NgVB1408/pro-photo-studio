@@ -1,0 +1,26 @@
+name: MIT-Adobe-FiveK
+upstream: https://data.csail.mit.edu/graphics/fivek/
+hf_mirror_default: MichelangeloC/MIT-Adobe-FiveK
+license: research-only
+license_notes: |
+  The FiveK dataset is licensed for research only. Models fine-tuned on this
+  data may be used for in-house experimentation but cannot be redistributed
+  or shipped in a commercial product. See packages/data/LICENSES.md.
+size:
+  rows: 5000
+  experts: 5
+columns_typical:
+  - name: input_image
+    description: Original camera RAW (DNG)
+  - name: expert_a
+    description: Photographer A retouch (TIFF)
+  - name: expert_b
+    description: Photographer B retouch
+  - name: expert_c
+    description: Photographer C retouch — canonical fine-tune target
+  - name: expert_d
+    description: Photographer D retouch
+  - name: expert_e
+    description: Photographer E retouch
+recommended_split: { train: 4500, val: 500 }
+default_expert_for_finetune: c

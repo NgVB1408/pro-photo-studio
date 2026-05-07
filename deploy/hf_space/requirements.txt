@@ -1,0 +1,7 @@
+gradio>=4.0
+numpy>=1.26
+opencv-python-headless>=4.9
+Pillow>=10.0
+# pps-core is installed via the GitHub URL pin below — replace with PyPI
+# release once published.
+git+https://github.com/NgVB1408/pro-photo-studio.git#subdirectory=packages/core
