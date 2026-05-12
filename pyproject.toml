@@ -3,7 +3,7 @@ name = "pro-photo-studio"
 version = "0.1.0"
 description = "Production-grade real-estate photo enhancement, 2026 edition"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.14"
 license = "Apache-2.0"
 authors = [
     { name = "NgVB1408" },
@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
@@ -27,6 +28,9 @@ members = [
     "packages/ai",
     "packages/api",
     "packages/desktop",
+    "packages/agents",
+    "packages/data",
+    "packages/embed",
 ]
 
 [tool.uv.sources]
@@ -34,6 +38,9 @@ pps-core = { workspace = true }
 pps-ai = { workspace = true }
 pps-api = { workspace = true }
 pps-desktop = { workspace = true }
+pps-agents = { workspace = true }
+pps-data = { workspace = true }
+pps-embed = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -49,7 +56,15 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["packages/core/pps_core", "packages/ai/pps_ai", "packages/api/pps_api", "packages/desktop/pps_desktop"]
+src = [
+    "packages/core/pps_core",
+    "packages/ai/pps_ai",
+    "packages/api/pps_api",
+    "packages/desktop/pps_desktop",
+    "packages/agents/pps_agents",
+    "packages/data/pps_data",
+    "packages/embed/pps_embed",
+]
 
 [tool.ruff.lint]
 select = [

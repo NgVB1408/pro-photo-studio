@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-agents"
+version = "0.1.0"
+description = "Multi-agent orchestration for the Pro Photo Studio SOP — 5 specialists in parallel + Director QC"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+dependencies = [
+    "pps-core",
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+pps-agents = "pps_agents.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_agents"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"

@@ -1,0 +1,43 @@
+name: Deploy HF Space (manual)
+
+# Manual-only: prevents accidental pushes. Gated by repo variable
+# ALLOW_HF_DEPLOY=='true' so a stranger's PR can't trigger a deploy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      space_id:
+        description: "HF Space (e.g. yourorg/pps-demo)"
+        required: true
+
+jobs:
+  deploy:
+    if: ${{ vars.ALLOW_HF_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install huggingface-hub
+        run: python -m pip install "huggingface-hub>=0.26"
+
+      - name: Push deploy/hf_space to Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_SPACES_TOKEN }}
+          SPACE_ID: ${{ inputs.space_id }}
+        run: |
+          python -c "
+          import os, sys
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          api.upload_folder(
+              folder_path='deploy/hf_space',
+              repo_id=os.environ['SPACE_ID'],
+              repo_type='space',
+              commit_message='deploy from gh-actions',
+          )
+          print('uploaded to', os.environ['SPACE_ID'])
+          "

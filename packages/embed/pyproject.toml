@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-embed"
+version = "0.1.0"
+description = "Pro Photo Studio — photo + algorithm embeddings, Qdrant store, Postgres metadata"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+dependencies = [
+    "pps-core",
+    "qdrant-client>=1.12",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "scikit-learn>=1.4",
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "Pillow>=10.0",
+    "typer>=0.13",
+]
+
+[project.optional-dependencies]
+clip = ["torch>=2.1", "open-clip-torch>=2.24"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[project.scripts]
+pps-embed = "pps_embed.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_embed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+asyncio_mode = "auto"

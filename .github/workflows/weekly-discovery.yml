@@ -1,0 +1,58 @@
+name: Weekly OSS discovery
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"   # Mondays 02:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write       # to push the discovery branch
+  pull-requests: write  # to open the PR
+
+concurrency:
+  group: weekly-discovery
+  cancel-in-progress: false
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  discover:
+    needs: [secret-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pps-data
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e packages/core
+          python -m pip install -e packages/data
+
+      - name: Run discovery
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISCOVERY_TOKEN || secrets.GITHUB_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python scripts/discover_repos.py --out discovery_report.md
+
+      - name: Open / update PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/discovery-${{ github.run_id }}
+          title: "chore(discovery): weekly OSS scan"
+          commit-message: "chore(discovery): weekly OSS scan ${{ github.run_id }}"
+          body-path: discovery_report.md
+          delete-branch: true
+          add-paths: |
+            discovery_report.md
