@@ -107,3 +107,7 @@ logs/
 
 # Local user data
 .user_settings/
+
+# Test images downloaded for verification (not source)
+test_input/
+.venv-directml/

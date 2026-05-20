@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -20,12 +20,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install deps
+      - name: Install deps (CPU bundle — GPU torch installed at first-run on user machine)
         run: |
           python -m pip install --upgrade pip
-          pip install -e packages/core
+          pip install -e packages/core[raw,sky-ai]
           pip install -e packages/desktop
           pip install pyinstaller>=6.11
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install spandrel rembg onnxruntime
+
+      - name: Smoke test GPU detector
+        run: |
+          python -c "from pps_core.device import describe_device; print(describe_device())"
 
       - name: Build single-file exe
         run: |
@@ -33,11 +39,21 @@ jobs:
             --collect-all PySide6 `
             --collect-all shiboken6 `
             --collect-all cv2 `
+            --collect-all torch `
+            --collect-all spandrel `
+            --collect-all rembg `
+            --collect-all onnxruntime `
             --collect-data pps_core `
+            --hidden-import="pps_core.device" `
+            --hidden-import="pps_core.upscale" `
+            --hidden-import="pps_core.realestate" `
+            --hidden-import="pps_core.hdr" `
             packages/desktop/pps_desktop/__main__.py
 
       - name: List dist
-        run: dir dist
+        run: |
+          dir dist
+          (Get-Item dist\ProPhotoStudio.exe).Length / 1MB
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

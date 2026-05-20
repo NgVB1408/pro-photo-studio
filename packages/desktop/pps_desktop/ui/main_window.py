@@ -127,6 +127,31 @@ class MainWindow(QMainWindow):
         # === Status bar ===
         sb = QStatusBar()
         self.setStatusBar(sb)
+        # Auto-detect GPU và show ở status bar (right side)
+        try:
+            from pps_core.device import describe_device, detect_best_device
+            info = detect_best_device()
+            device_str = describe_device()
+            from PySide6.QtWidgets import QLabel
+            self.device_label = QLabel(device_str)
+            tooltip = (
+                f"Backend đang dùng: {info.kind.upper()}\n"
+                f"Tốc độ ước tính so với CPU: {info.expected_speedup}\n"
+            )
+            if info.kind == "cpu":
+                tooltip += (
+                    "\n⚠ Đang chạy CPU — Real-ESRGAN x2 sẽ chậm (~10 min/ảnh).\n"
+                    "Cài torch-directml (AMD/Intel) hoặc torch+cuda (NVIDIA) "
+                    "để tăng tốc."
+                )
+            self.device_label.setToolTip(tooltip)
+            self.device_label.setStyleSheet(
+                "padding: 2px 12px; font-weight: 600; "
+                + ("color: #4ade80;" if info.is_gpu else "color: #facc15;")
+            )
+            sb.addPermanentWidget(self.device_label)
+        except Exception as exc:
+            logger.warning("GPU detect fail: %s", exc)
         sb.showMessage(f"{APP_NAME} v{APP_VERSION} · Đã kích hoạt · "
                        f"Sẵn sàng xử lý")
 

@@ -395,7 +395,7 @@ class AutoTab(QWidget):
 
         # ===== Group 3: Batch options (recursive, skip, denoise) =====
         opt_group = QGroupBox("🔧  TUỲ CHỌN BATCH")
-        opt_group.setMinimumHeight(280)
+        opt_group.setMinimumHeight(400)
         opt_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         opt_layout = QGridLayout(opt_group)
         opt_layout.setContentsMargins(20, 32, 20, 18)
@@ -421,16 +421,81 @@ class AutoTab(QWidget):
         self.cb_keep_size.setMinimumHeight(28)
         opt_layout.addWidget(self.cb_keep_size, 1, 1)
 
-        self.cb_auto_hdr = QCheckBox("🌆  Auto HDR bracket merge (tự gom 2-5 exposure)")
-        self.cb_auto_hdr.setChecked(True)
-        self.cb_auto_hdr.setToolTip(
-            "Worker tự nhận diện các nhóm ảnh bracket (cùng burst, EV khác nhau) "
-            "và fuse Mertens HDR trước khi enhance — output 1 ảnh _hdr/group."
+        # HDR Bracket mode — Off / Auto / 3 / 5 / 7 exposures
+        hdr_row = QWidget()
+        hdr_l = QHBoxLayout(hdr_row)
+        hdr_l.setContentsMargins(0, 0, 0, 0)
+        hdr_l.setSpacing(8)
+        hdr_lbl = QLabel("🌆  HDR Bracket:")
+        hdr_lbl.setStyleSheet("font-weight: 600;")
+        hdr_l.addWidget(hdr_lbl)
+        self.combo_bracket = QComboBox()
+        self.combo_bracket.addItems(["Tắt (ảnh đơn)", "Tự động", "3 ảnh/cảnh", "5 ảnh/cảnh", "7 ảnh/cảnh"])
+        self.combo_bracket.setCurrentIndex(1)  # Auto default
+        self.combo_bracket.setMinimumHeight(36)
+        self.combo_bracket.setMinimumWidth(160)
+        self.combo_bracket.setToolTip(
+            "Off: xử lý từng ảnh độc lập\n"
+            "Auto: tự gom 2-5 ảnh cùng burst (EV khác nhau) → fuse Mertens HDR\n"
+            "3/5/7: ép gom đúng N ảnh/scene (giống realtyedit chọn 3/5/7 exp)"
         )
-        self.cb_auto_hdr.setMinimumHeight(28)
-        opt_layout.addWidget(self.cb_auto_hdr, 2, 0)
+        hdr_l.addWidget(self.combo_bracket, 1)
+        opt_layout.addWidget(hdr_row, 2, 0, 1, 2)
 
-        self.cb_review = QCheckBox("🧾  Xuất processing_report.csv + contact sheet trước/sau")
+        # Vertical alignment toggle (giống "Tích gióng/không gióng thẳng")
+        self.cb_vertical = QCheckBox("📐  Gióng thẳng đường dọc (vertical alignment)")
+        self.cb_vertical.setChecked(True)
+        self.cb_vertical.setToolTip(
+            "Tự kéo thẳng đường dọc (cột, khung cửa, tường) khi ảnh nghiêng phối cảnh.\n"
+            "Bỏ tick nếu muốn giữ nguyên góc chụp gốc."
+        )
+        self.cb_vertical.setMinimumHeight(28)
+        opt_layout.addWidget(self.cb_vertical, 3, 0)
+
+        # Sky preset combo — clone từ AI panel, ngay tay
+        sky_row = QWidget()
+        sky_l = QHBoxLayout(sky_row)
+        sky_l.setContentsMargins(0, 0, 0, 0)
+        sky_l.setSpacing(8)
+        sky_lbl = QLabel("☁  Thay trời:")
+        sky_lbl.setStyleSheet("font-weight: 600;")
+        sky_l.addWidget(sky_lbl)
+        self.combo_sky = QComboBox()
+        # (label, preset_key)
+        self._sky_options = [
+            ("Tắt", ""),
+            ("Blue Sky + Clouds", "blue_clouds"),
+            ("Blue Clear", "blue_clear"),
+            ("Sunset Warm", "sunset_warm"),
+            ("Golden Hour", "golden_hour"),
+            ("Dramatic Storm", "dramatic_storm"),
+            ("Overcast Soft", "overcast_soft"),
+            ("Twilight Blue", "twilight_blue"),
+        ]
+        for label, _ in self._sky_options:
+            self.combo_sky.addItem(label)
+        self.combo_sky.setCurrentIndex(0)  # Off default — sky thay đổi nội dung, để user opt-in
+        self.combo_sky.setMinimumHeight(36)
+        self.combo_sky.setMinimumWidth(160)
+        self.combo_sky.setToolTip(
+            "Thay trời cho ảnh ngoại thất (giống realtyedit chọn sky).\n"
+            "AI sky segmentation tự detect vùng trời + composite preset mới."
+        )
+        sky_l.addWidget(self.combo_sky, 1)
+        opt_layout.addWidget(sky_row, 3, 1)
+
+        self.cb_realestate = QCheckBox(
+            "🏡  Pipeline BĐS đầy đủ (auto window pull / lawn / classify)"
+        )
+        self.cb_realestate.setChecked(True)
+        self.cb_realestate.setToolTip(
+            "Bật flow Real Estate: tự classify scene → window pull "
+            "indoor → enhance lawn exterior. Vertical + Sky tách thành option riêng ở trên."
+        )
+        self.cb_realestate.setMinimumHeight(28)
+        opt_layout.addWidget(self.cb_realestate, 4, 0, 1, 2)
+
+        self.cb_review = QCheckBox("🧾  Report CSV + contact sheet trước/sau")
         self.cb_review.setChecked(True)
         self.cb_review.setToolTip(
             "Sau khi batch xong, app tự xuất:\n"
@@ -438,21 +503,10 @@ class AutoTab(QWidget):
             " • _review/before_after_contact_sheet.jpg — review nhanh"
         )
         self.cb_review.setMinimumHeight(28)
-        opt_layout.addWidget(self.cb_review, 2, 1)
-
-        self.cb_realestate = QCheckBox(
-            "🏡  Pipeline BĐS đầy đủ (auto vertical / window pull / lawn / classify)"
-        )
-        self.cb_realestate.setChecked(True)
-        self.cb_realestate.setToolTip(
-            "Bật flow Real Estate: tự classify scene → straighten dọc → window pull "
-            "indoor → enhance lawn exterior. Sky chỉ replace khi chọn preset bên panel phải."
-        )
-        self.cb_realestate.setMinimumHeight(28)
-        opt_layout.addWidget(self.cb_realestate, 3, 0, 1, 2)
+        opt_layout.addWidget(self.cb_review, 5, 0)
 
         self.cb_preflight = QCheckBox(
-            "🩺  Pre-flight QC (blur / exposure / dimension → flag retake)"
+            "🩺  Pre-flight QC (blur / exposure / dimension)"
         )
         self.cb_preflight.setChecked(True)
         self.cb_preflight.setToolTip(
@@ -461,10 +515,10 @@ class AutoTab(QWidget):
             "biết retake."
         )
         self.cb_preflight.setMinimumHeight(28)
-        opt_layout.addWidget(self.cb_preflight, 4, 0)
+        opt_layout.addWidget(self.cb_preflight, 5, 1)
 
         self.cb_ai_sky = QCheckBox(
-            "🤖  AI Sky segmentation (rembg, fallback heuristic nếu chưa cài)"
+            "🤖  AI Sky segmentation (rembg, fallback heuristic)"
         )
         self.cb_ai_sky.setChecked(True)
         self.cb_ai_sky.setToolTip(
@@ -473,10 +527,10 @@ class AutoTab(QWidget):
             "Nếu chưa cài → tự fallback HSV heuristic."
         )
         self.cb_ai_sky.setMinimumHeight(28)
-        opt_layout.addWidget(self.cb_ai_sky, 4, 1)
+        opt_layout.addWidget(self.cb_ai_sky, 6, 0)
 
         self.cb_raw = QCheckBox(
-            "📸  Nhận RAW input (.dng/.cr2/.nef/.arw/.raf/...) qua rawpy"
+            "📸  Nhận RAW input (.dng/.cr2/.nef/.arw/.raf/...)"
         )
         self.cb_raw.setChecked(True)
         self.cb_raw.setToolTip(
@@ -484,7 +538,13 @@ class AutoTab(QWidget):
             "Ảnh JPG/PNG vẫn xử lý bình thường khi tắt option này."
         )
         self.cb_raw.setMinimumHeight(28)
-        opt_layout.addWidget(self.cb_raw, 5, 0, 1, 2)
+        opt_layout.addWidget(self.cb_raw, 6, 1)
+
+        # Backward compat — code phía dưới còn ref cb_auto_hdr (chỉ on/off)
+        # Map từ combo_bracket
+        self.cb_auto_hdr = QCheckBox()
+        self.cb_auto_hdr.setChecked(True)
+        self.cb_auto_hdr.hide()
 
         # Hidden — controlled bởi AI panel + sidebar
         # Đặt default cho compatibility
@@ -553,6 +613,25 @@ class AutoTab(QWidget):
         if self.cb_keep_size.isChecked():
             size_label = "Giữ nguyên (chất lượng tối đa)"
 
+        # Resolve HDR bracket mode
+        bracket_idx = self.combo_bracket.currentIndex()
+        # 0=Off, 1=Auto, 2=3 exp, 3=5 exp, 4=7 exp
+        if bracket_idx == 0:
+            auto_hdr = False
+            bracket_size = None
+        elif bracket_idx == 1:
+            auto_hdr = True
+            bracket_size = None
+        else:
+            auto_hdr = True
+            bracket_size = {2: 3, 3: 5, 4: 7}[bracket_idx]
+
+        # Resolve Sky preset
+        sky_idx = self.combo_sky.currentIndex()
+        sky_label, sky_key = self._sky_options[sky_idx]
+        enable_sky = bool(sky_key)
+        sky_preset = sky_key or "blue_clouds"
+
         # AI panel sẽ override các option này khi MainWindow gọi apply_to_job()
         job = BatchJob(
             input_dir=in_dir,
@@ -566,8 +645,11 @@ class AutoTab(QWidget):
             color_enhance=self.cb_color_enhance.isChecked(),
             enhance_preset=self.preset_combo.currentText(),
             realestate_pipeline=self.cb_realestate.isChecked(),
-            enable_sky_replace=False,  # AI panel sẽ bật nếu user chọn preset
-            auto_hdr_merge=self.cb_auto_hdr.isChecked(),
+            enable_sky_replace=enable_sky,
+            sky_preset=sky_preset,
+            vertical_align=self.cb_vertical.isChecked(),
+            auto_hdr_merge=auto_hdr,
+            hdr_bracket_size=bracket_size,
             review_contact_sheet=self.cb_review.isChecked(),
             write_processing_report=self.cb_review.isChecked(),
             preflight_check=self.cb_preflight.isChecked(),

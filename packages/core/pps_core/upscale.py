@@ -96,7 +96,11 @@ def _download_model(name: str) -> Path:
 
 
 def _load_model(name: str, device: str = "auto"):
-    """Lazy load model qua spandrel — return ImageModelDescriptor."""
+    """Lazy load model qua spandrel — return ImageModelDescriptor.
+
+    device='auto' → dùng pps_core.device.get_torch_device() (CUDA/MPS/DirectML/CPU).
+    device='cuda'/'mps'/'cpu' → ép cụ thể (cho test).
+    """
     cache_key = f"{name}@{device}"
     if cache_key in _MODEL_CACHE:
         return _MODEL_CACHE[cache_key]
@@ -109,16 +113,25 @@ def _load_model(name: str, device: str = "auto"):
         from spandrel import ModelLoader
 
         if device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            from .device import get_torch_device, detect_best_device
+            torch_device = get_torch_device()
+            info = detect_best_device()
+            logger.info("Auto-detected device: %s", info.short_summary())
+        elif device == "cuda":
+            torch_device = torch.device("cuda:0")
+        elif device == "mps":
+            torch_device = torch.device("mps")
+        else:
+            torch_device = torch.device("cpu")
 
         model_path = _download_model(name)
-        loader = ModelLoader(device=torch.device(device))
+        loader = ModelLoader(device=torch_device)
         model = loader.load_from_file(str(model_path))
-        model.cpu() if device == "cpu" else model.cuda()
+        model.to(torch_device)
         model.eval()
 
         _MODEL_CACHE[cache_key] = model
-        logger.info("Loaded %s on %s, scale=%d", name, device, model.scale)
+        logger.info("Loaded %s on %s, scale=%d", name, torch_device, model.scale)
         return model
 
 
@@ -144,8 +157,9 @@ def _process_tile(model, tile_bgr: np.ndarray) -> np.ndarray:
     import torch
 
     t = _bgr_to_tensor(tile_bgr)
-    if next(model.model.parameters()).is_cuda:
-        t = t.cuda()
+    # Move tensor to same device as model — works cho cuda/mps/directml/cpu
+    model_device = next(model.model.parameters()).device
+    t = t.to(model_device)
     with torch.no_grad():
         out = model(t)
     return _tensor_to_bgr(out.float())

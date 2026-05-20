@@ -313,13 +313,17 @@ def pseudo_hdr_single(
 def detect_blown_areas(
     img: np.ndarray,
     *,
-    threshold_v: int = 245,
+    threshold_v: int = 240,
     min_area_ratio: float = 0.001,
-    max_area_ratio: float = 0.40,
+    max_area_ratio: float = 0.70,
 ) -> np.ndarray:
     """Detect vùng cháy (V ≥ threshold) đủ to để là cửa sổ/lighting.
 
     Trả mask uint8 (0 hoặc 255) đã feathered.
+
+    threshold_v=240 (giảm từ 245) bắt được vùng cháy gradient cửa sổ.
+    max_area_ratio=0.70 (tăng từ 0.40) cover được interior shot thiếu sáng
+    nặng có cửa sổ chiếm hơn nửa khung — case real-estate phổ biến.
     """
     h, w = img.shape[:2]
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)

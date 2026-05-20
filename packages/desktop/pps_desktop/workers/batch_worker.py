@@ -24,41 +24,48 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BatchJob:
-    """1 job batch processing."""
+    """1 job batch processing.
+
+    DEFAULTS = QUALITY-FIRST. User ném ảnh vào → tự áp full pipeline:
+    detail_recovery + AI sky + selective_sharpen + lens + perspective + upscale.
+    Không cần tinh chỉnh.
+    """
     input_dir: Path
     output_dir: Path
     output_format: str = "jpg"           # jpg | png | webp
     output_quality: int = 95
     output_size_label: str = "Giữ nguyên"  # ref OUTPUT_SIZE_CHOICES
-    # Toggles
-    denoise: bool = False
+    # Toggles — quality-first defaults
+    denoise: bool = False                # OFF — combine với sharpen sẽ plastic
     keep_size: bool = True               # tương đương "Lấy chuẩn size gốc"
-    detail_recovery: bool = False        # "Phục Hồi Chi Tiết"
+    detail_recovery: bool = True         # ON — pseudo_HDR cho ảnh đơn, recover blown windows
     color_enhance: bool = True
     enhance_preset: str = "real_estate"  # studio | real_estate | portrait | product | outdoor
     realestate_pipeline: bool = True     # Auto vertical / window pull / lawn / classify (luôn bật)
-    enable_sky_replace: bool = False     # Replace sky chỉ khi user chọn preset
+    enable_sky_replace: bool = False     # Replace sky chỉ khi user chọn preset (thay nội dung)
     sky_preset: str = "blue_clouds"      # nếu enable_sky_replace
     sky_source: str = "auto"             # procedural | real_photo | auto
-    # ===== AI V5 features (Autoenhance parity) =====
-    perspective_correct: bool = False    # Adobe Upright
-    lens_correct: bool = False           # Brown-Conrady distortion fix
-    auto_privacy: bool = False           # blur faces + plates
-    tv_blackout: bool = False            # detect TV → blacken
-    fire_fireplace: bool = False         # composite fire
-    photog_removal: bool = False         # mirror reflection inpaint
+    # ===== AI V5 features (Autoenhance parity) — DEFAULT ON =====
+    perspective_correct: bool = True     # Adobe Upright (gióng dọc + hoá vuông)
+    lens_correct: bool = True            # Brown-Conrady distortion fix
+    auto_privacy: bool = False           # blur faces + plates (privacy concern — user opt-in)
+    tv_blackout: bool = False            # detect TV → blacken (thay nội dung)
+    fire_fireplace: bool = False         # composite fire (thay nội dung)
+    photog_removal: bool = False         # mirror reflection inpaint (cần mask user)
     ai_inpaint: bool = False             # LaMa for any user-marked region
-    ai_upscale_scale: int = 0            # 0=off, 2 hoặc 4
-    ai_upscale_model: str = "RealESRGAN_x4plus"
-    # ===== Pro v2 features =====
+    ai_upscale_scale: int = 2            # ON x2 — Real-ESRGAN sharpness lift
+    ai_upscale_model: str = "RealESRGAN_x2plus"  # 64MB, quality > realesr-general
+    # ===== Pro v2 features — DEFAULT ON =====
     seed: int | None = None              # determinism cho sky pick + random ops
-    tone_preset: str = "neutral"         # neutral | warm | cool | auto (locked batch-wide)
+    tone_preset: str = "auto_batch"      # neutral | warm | cool | auto_batch (locked batch-wide)
     tone_strength: float = 0.5
-    selective_sharpen: bool = False      # saliency-based sharpen subject only
+    selective_sharpen: bool = True       # ON — saliency-based sharpen subject only
     auto_hdr_merge: bool = True          # auto group brackets -> 1 HDR output
+    hdr_bracket_size: int | None = None  # None=auto detect 2-5, 3/5/7=ép gom đúng N ảnh
+    vertical_align: bool = True          # gióng thẳng đường dọc (tách khỏi realestate_pipeline)
     review_contact_sheet: bool = True    # before/after sheet for QA
     write_processing_report: bool = True # CSV + desktop log friendly report
-    # ===== Pro v3 features =====
+    # ===== Pro v3 features — DEFAULT ON =====
     preflight_check: bool = True         # blur/exposure/dimension QC trước khi xử lý
     use_ai_sky: bool = True              # rembg-based sky segmentation (fallback heuristic)
     accept_raw: bool = True              # nhận RAW input qua rawpy nếu cài
@@ -265,8 +272,13 @@ class BatchWorker(QThread):
                     sky_preset=j.sky_preset, seed=j.seed,
                     brackets=bracket_imgs or None,
                     enable_sky=j.enable_sky_replace,
+                    enable_vertical=j.vertical_align,
                     use_ai_sky=j.use_ai_sky,
                 )
+            elif j.vertical_align:
+                # Pipeline RE off nhưng user vẫn muốn gióng dọc → chạy riêng
+                from pps_core.realestate import correct_vertical
+                img, _ = correct_vertical(img)
                 try:
                     info["scene"] = re_report.scene.tag
                     parts = []
@@ -496,16 +508,42 @@ class BatchWorker(QThread):
         if not self._job.auto_hdr_merge or len(files) < 2:
             return [ProcessingTask(f, ()) for f in files]
 
+        # User-forced bracket size (3/5/7) — gom đúng N ảnh liên tiếp cùng scene
+        forced = self._job.hdr_bracket_size
         sigs = [self._signature(p) for p in files]
         tasks: list[ProcessingTask] = []
         i = 0
         while i < len(files):
+            # Window scan = forced size (nếu đặt) hoặc 5 (auto)
+            window = forced if forced else 5
             best: list[BracketSignature] = [sigs[i]]
-            for j in range(i + 1, min(i + 5, len(files))):
+            for j in range(i + 1, min(i + window, len(files))):
                 if self._can_be_same_scene(sigs[i], sigs[j]):
                     best.append(sigs[j])
                 else:
                     break
+
+            if forced:
+                # User ép N → chỉ gom khi đủ N ảnh cùng scene, đúng EV/brightness spread
+                if len(best) >= forced:
+                    group = best[:forced]
+                    # Verify có spread (EV hoặc brightness) — tránh nhóm N ảnh giống hệt
+                    ev_vals = [s.exposure_bias for s in group if s.exposure_bias is not None]
+                    bright_spread = max(s.brightness for s in group) - min(s.brightness for s in group)
+                    has_spread = (
+                        (len(ev_vals) >= 2 and max(ev_vals) - min(ev_vals) >= 0.5)
+                        or bright_spread >= 12.0
+                    )
+                    if has_spread:
+                        ref = min(group, key=lambda s: abs(s.brightness - 128.0))
+                        brackets = tuple(s.path for s in group if s.path != ref.path)
+                        tasks.append(ProcessingTask(ref.path, brackets))
+                        i += forced
+                        continue
+                # Không đủ N hoặc không có spread → ảnh đơn
+                tasks.append(ProcessingTask(files[i], ()))
+                i += 1
+                continue
 
             group = self._pick_hdr_group(best)
             if len(group) >= 2:
