@@ -1,0 +1,55 @@
+name: Build Desktop .exe
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["desktop-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e packages/core
+          pip install -e packages/desktop
+          pip install pyinstaller>=6.11
+
+      - name: Build single-file exe
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --name "ProPhotoStudio" `
+            --collect-all PySide6 `
+            --collect-all shiboken6 `
+            --collect-all cv2 `
+            --collect-data pps_core `
+            packages/desktop/pps_desktop/__main__.py
+
+      - name: List dist
+        run: dir dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProPhotoStudio-windows-x64
+          path: dist/ProPhotoStudio.exe
+          retention-days: 30
+
+      - name: Create release (on tag)
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ProPhotoStudio.exe
+          name: "Desktop ${{ github.ref_name }}"
+          draft: false
