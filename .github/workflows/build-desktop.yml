@@ -30,8 +30,10 @@ jobs:
           pip install spandrel rembg onnxruntime
 
       - name: Smoke test GPU detector
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
-          python -c "from pps_core.device import describe_device; print(describe_device())"
+          python -X utf8 -c "from pps_core.device import describe_device; print(describe_device())"
 
       - name: Build single-file exe
         run: |
