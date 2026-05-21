@@ -50,16 +50,46 @@
 > `/api/v1/full-recovery-ceiling` endpoint → PNG RGBA với mọi vùng ngoài ceiling
 > trong suốt hoàn toàn (alpha=0). Sẵn sàng paste vào Photoshop làm layer.
 
-### 🎨 SAM Automatic Mask Generator — Panoptic Visualization
+### 🎨 SAM Automatic Mask Generator — Gallery 5 Phòng (Panoptic Visualization)
 
 > Theo notebook chính thức [facebookresearch/segment-anything](https://github.com/facebookresearch/segment-anything/blob/main/notebooks/automatic_mask_generator_example.ipynb).
-> Mỗi instance riêng được tô một màu — chứng minh AI đang dùng SAM thật.
+> Mỗi instance được tô một màu riêng — chứng minh AI đang dùng SAM thật.
+> Sort theo area DESC + random color + alpha 0.35 (visualization style notebook official).
 
-![SAM panoptic DSC01527](docs/showcase/real_estate/DSC01527_sam_panoptic.jpg)
+| Phòng | SAM ViT-B Panoptic (masks count) |
+| :---: | :---: |
+| **DSC01527** — Phòng khách modern (39 masks, grid 32) | ![DSC01527 SAM](docs/showcase/real_estate/DSC01527_sam_panoptic.jpg) |
+| **DSC01530** — Phòng kế tiếp (31 masks) | ![DSC01530 SAM](docs/showcase/real_estate/DSC01530_sam_panoptic.jpg) |
+| **DSC01533** — Góc khác (33 masks) | ![DSC01533 SAM](docs/showcase/real_estate/DSC01533_sam_panoptic.jpg) |
+| **DSC01536** — Phòng cửa sổ (34 masks) | ![DSC01536 SAM](docs/showcase/real_estate/DSC01536_sam_panoptic.jpg) |
+| **DSC01539** — Góc tiếp (39 masks) | ![DSC01539 SAM](docs/showcase/real_estate/DSC01539_sam_panoptic.jpg) |
 
-> **39 masks** auto-generated bằng SAM ViT-B (grid 32×32 prompts).
-> Endpoint: `POST /api/v1/sam-demo` · CLI: `pps-sam-demo foto.jpg`
-> Sort theo area DESC + random color + alpha 0.35 (đúng visualization style notebook official).
+```bash
+# CLI
+pps-sam-demo foto.jpg --points-per-side 32 --alpha 0.35 --out colored.jpg
+
+# REST API
+curl -X POST http://localhost:8000/api/v1/sam-demo \
+     -F "file=@foto.jpg" --output sam_colored.jpg
+
+# Python API
+from pps_wincei_masks.sam_demo import sam_demo_pipeline
+import cv2
+img = cv2.imread("foto.jpg")
+result = sam_demo_pipeline(img, points_per_side=32)
+cv2.imwrite("out.jpg", result.overlay_bgr)
+```
+
+**Performance (Sony A7M4 6K = 4608×3072):**
+
+| Hardware | Grid | Time | Masks |
+| --- | --- | --- | --- |
+| CPU only (i5-7500) | 16 | ~5 phút | 31-39 |
+| CPU only | 32 | ~23 phút | 35-50 |
+| GPU RTX 3060 6GB | 32 | ~30s | 35-50 |
+| GPU RTX 4090 24GB | 32 | ~8s | 35-50 |
+
+⚠️ GTX 750 Ti (Maxwell sm_50) đã bị CUDA 12 drop — chỉ chạy CPU được trên hardware này.
 
 ### Scorecard tổng — 6 ảnh (v0.3.2 — toàn bộ TĂNG ĐIỂM so với v0.3.1)
 
