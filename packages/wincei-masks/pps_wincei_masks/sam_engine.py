@@ -75,10 +75,18 @@ class SAMEngine:
     ):
         self.high_res = high_res
         if backend == "auto":
-            if _has_sam2():
+            # Prefer SAM 2 nếu cài + có checkpoint
+            sam2_ckpt = Path.home() / ".cache" / "sam2" / "sam2_hiera_tiny.pt"
+            if _has_sam2() and (checkpoint is not None or sam2_ckpt.exists()):
                 backend = "sam2"
             elif _has_sam1():
-                backend = "sam1"
+                # SAM 1 fallback if vit_b checkpoint exists
+                sam1_ckpt = Path.home() / ".cache" / "sam" / "sam_vit_b_01ec64.pth"
+                if checkpoint is not None or sam1_ckpt.exists():
+                    backend = "sam1"
+                    log.info("Using SAM 1.0 (vit_b) — SAM 2 checkpoint not found")
+                else:
+                    backend = "fallback"
             else:
                 backend = "fallback"
 
@@ -141,8 +149,19 @@ class SAMEngine:
         except ImportError as exc:
             raise RuntimeError(f"segment_anything import fail: {exc}")
 
+        # Auto-locate SAM 1 checkpoint trong ~/.cache/sam/
         if ckpt is None:
-            raise RuntimeError("SAM 1 checkpoint required. Download from https://github.com/facebookresearch/segment-anything")
+            cache_dir = Path.home() / ".cache" / "sam"
+            for fname in ("sam_vit_b_01ec64.pth", "sam_vit_l_0b3195.pth", "sam_vit_h_4b8939.pth"):
+                candidate = cache_dir / fname
+                if candidate.exists():
+                    ckpt = candidate
+                    log.info("Auto-detected SAM 1 checkpoint: %s", ckpt)
+                    break
+            else:
+                raise RuntimeError(
+                    f"SAM 1 checkpoint missing. Tải về: bash scripts/download_sam.sh vit_b"
+                )
         ckpt = Path(ckpt)
         model_type = "vit_b"
         if "vit_l" in ckpt.name:
@@ -218,35 +237,20 @@ class SAMEngine:
         return SAMResult(mask=(masks[0] * 255).astype(np.uint8), score=float(scores[0]))
 
     def generate_all_masks_high_res(self, image_bgr: np.ndarray) -> list[dict]:
-        """Automatic mask generator với high-resolution grid (ảnh khó).
+        """DEPRECATED v0.3.3 — DISABLED.
 
-        Returns list of dicts: [{segmentation, area, bbox, predicted_iou, ...}].
-        Caller filter theo class_name / location sau.
+        SAM2AutomaticMaskGenerator quét tự do toàn ảnh → ảo giác phân loại
+        sai thớ đá lò sưởi / nệm sofa thành cấu trúc nhà.
+
+        Pipeline mới CHỈ dùng SAM2ImagePredictor với point/box prompts từ VLM
+        hoặc semantic centroids — không quét tự do.
+
+        Returns: empty list (no-op).
         """
-        try:
-            from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-        except ImportError:
-            log.warning("SAM2AutomaticMaskGenerator không có → skip high-res scan")
-            return []
-
-        if self._predictor is None:
-            return []
-
-        # Build mới generator từ same underlying model
-        try:
-            model = self._predictor.model
-        except AttributeError:
-            log.warning("Cannot extract model từ predictor")
-            return []
-
-        cfg = dict(HIGH_RES_CONFIG)
-        mask_gen = SAM2AutomaticMaskGenerator(model=model, **cfg)
-
-        rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        masks = mask_gen.generate(rgb)
-        log.info("SAM2 high-res scan: %d masks generated (points_per_side=%d)",
-                 len(masks), cfg["points_per_side"])
-        return masks
+        log.warning(
+            "SAM2AutomaticMaskGenerator DISABLED v0.3.3 — dùng predict_from_points/box."
+        )
+        return []
 
     def _grabcut_from_point(self, image_bgr: np.ndarray, point_xy) -> SAMResult:
         """GrabCut fallback. Định nghĩa rect ±15% quanh click point làm trimap PR_FGD."""

@@ -10,7 +10,10 @@ from fastapi.responses import HTMLResponse
 
 from .__version__ import __version__
 from .config import settings
-from .routers import hdr, health, jobs, masks, recovery, regions, ui, window_ceiling
+from .routers import (
+    hdr, health, jobs, masks, perfect_window, recovery, regions, sam_demo, ui,
+    window_ceiling,
+)
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +49,8 @@ def create_app() -> FastAPI:
     app.include_router(masks.router)
     app.include_router(regions.router)
     app.include_router(recovery.router)
+    app.include_router(perfect_window.router)
+    app.include_router(sam_demo.router)
     app.include_router(jobs.router)
     app.include_router(ui.router)
 

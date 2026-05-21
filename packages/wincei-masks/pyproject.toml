@@ -42,6 +42,8 @@ precision = ["pymatting>=1.1"]
 [project.scripts]
 pps-wincei-masks = "pps_wincei_masks.cli:main"
 pps-wincei-regions = "pps_wincei_masks.cli_regions:main"
+pps-wincei-window = "pps_wincei_masks.cli_window:main"
+pps-sam-demo = "pps_wincei_masks.cli_sam_demo:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pps_wincei_masks"]

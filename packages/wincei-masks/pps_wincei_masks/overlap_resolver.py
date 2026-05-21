@@ -422,6 +422,109 @@ def _detect_mullion_lines_in(
 
 
 # ───────────────────────────────────────────────────────────────────
+# ROI BOUNDARY RULES — Khoanh vùng cứng v0.3.3
+# ───────────────────────────────────────────────────────────────────
+
+def enforce_ceiling_roi(
+    ceiling_mask: np.ndarray,
+    image_bgr: np.ndarray,
+    *,
+    max_height_pct: float = 0.45,
+) -> np.ndarray:
+    """[RULE 1] Ceiling pixels CHỈ được phép tồn tại trong vùng top X% chiều cao.
+
+    Bất kỳ pixel ceiling nào lọt xuống dưới y = H * max_height_pct → zero-out.
+    Tránh ceiling lan vào sofa/bàn trà/sàn.
+
+    Args:
+        ceiling_mask: uint8 0/255.
+        image_bgr: chỉ cần shape.
+        max_height_pct: ngưỡng % chiều cao (default 0.45 = top 45%).
+
+    Returns:
+        ceiling cleaned uint8.
+    """
+    h = image_bgr.shape[0]
+    cap_y = int(h * max_height_pct)
+    before = int((ceiling_mask > 128).sum())
+    if before == 0:
+        return ceiling_mask
+    out = ceiling_mask.copy()
+    out[cap_y:, :] = 0  # ép zero tất cả pixel bên dưới cap_y
+    after = int((out > 128).sum())
+    removed = before - after
+    if removed > 0:
+        log.info("Ceiling ROI cap @ y=%d (%.0f%% height): -%d pixels",
+                 cap_y, max_height_pct * 100, removed)
+    return out
+
+
+def _bbox_of_mask(mask: np.ndarray, *, min_area: int = 100) -> tuple[int, int, int, int] | None:
+    """Find tight bounding box of mask, return (y_min, x_min, y_max, x_max) hoặc None."""
+    binary = (mask > 128).astype(np.uint8)
+    if binary.sum() < min_area:
+        return None
+    ys, xs = np.where(binary > 0)
+    if len(ys) == 0:
+        return None
+    return int(ys.min()), int(xs.min()), int(ys.max()), int(xs.max())
+
+
+def restrict_casing_window_to_bbox(
+    casing_mask: np.ndarray,
+    window_mask: np.ndarray,
+    opening_mask: np.ndarray,
+    image_bgr: np.ndarray,
+    *,
+    padding_pct: float = 0.025,
+) -> tuple[np.ndarray, np.ndarray]:
+    """[RULE 2] Casing + window CHỈ được tồn tại bên trong bbox(opening) + padding.
+
+    bbox = bounding box của opening mask + padding (2.5% width default).
+    Pixel ngoài bbox → zero-out.
+
+    Args:
+        casing_mask, window_mask: uint8 0/255.
+        opening_mask: reference bbox (window ∪ door ∪ sky).
+        image_bgr: shape.
+        padding_pct: padding ngoài bbox (theo % width).
+
+    Returns:
+        (casing_restricted, window_restricted)
+    """
+    h, w = image_bgr.shape[:2]
+    bbox = _bbox_of_mask(opening_mask, min_area=200)
+    if bbox is None:
+        # Không có opening → không restrict gì cả (để VLM/SAM logic khác handle)
+        return casing_mask, window_mask
+
+    y0, x0, y1, x1 = bbox
+    pad = max(20, int(w * padding_pct))
+    y0 = max(0, y0 - pad)
+    x0 = max(0, x0 - pad)
+    y1 = min(h, y1 + pad)
+    x1 = min(w, x1 + pad)
+
+    # Build ROI binary mask
+    roi = np.zeros((h, w), dtype=np.uint8)
+    roi[y0:y1, x0:x1] = 1
+
+    cas_before = int((casing_mask > 128).sum())
+    win_before = int((window_mask > 128).sum())
+
+    casing_out = cv2.bitwise_and(casing_mask, casing_mask, mask=roi)
+    window_out = cv2.bitwise_and(window_mask, window_mask, mask=roi)
+
+    cas_removed = cas_before - int((casing_out > 128).sum())
+    win_removed = win_before - int((window_out > 128).sum())
+
+    log.info("Casing/window bbox restrict @ [%d:%d, %d:%d] padding=%dpx: "
+             "casing -%d px, window -%d px",
+             y0, y1, x0, x1, pad, cas_removed, win_removed)
+    return casing_out, window_out
+
+
+# ───────────────────────────────────────────────────────────────────
 # OUTPUT PRODUCT FILTER — clean masks trước khi export
 # ───────────────────────────────────────────────────────────────────
 
@@ -433,31 +536,49 @@ def clean_output_masks(
     ceiling_close_pct: float = 0.02,
     casing_max_dist_pct: float = 0.015,
     baseboard_max_dist_to_wall_pct: float = 0.01,
+    ceiling_max_height_pct: float = 0.45,
+    bbox_padding_pct: float = 0.025,
 ) -> dict[str, np.ndarray]:
-    """Final cleanup before export — apply all 4 nguyên tắc."""
+    """Final cleanup — 4 nguyên tắc v0.3.2 + 3 ROI rules v0.3.3."""
     out = dict(masks)
-    w = image_bgr.shape[1]
 
-    # [1] Build + apply exclusion mask (non-property)
+    # ━━ ROI HARD-CAP TRƯỚC TIÊN ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # [RULE 1] Ceiling y ≤ 45% height (no sofa, no table, no floor)
+    if "ceiling" in out:
+        out["ceiling"] = enforce_ceiling_roi(
+            out["ceiling"], image_bgr, max_height_pct=ceiling_max_height_pct,
+        )
+
+    # [RULE 2] Casing + window within bbox(opening) + 2.5% padding
+    if "casing" in out and "window" in out and "opening" in out:
+        out["casing"], out["window"] = restrict_casing_window_to_bbox(
+            out["casing"], out["window"], out["opening"], image_bgr,
+            padding_pct=bbox_padding_pct,
+        )
+
+    # ━━ EXCLUSION MASK (49 ADE furniture classes) ━━━━━━━━━━━━━━━━━━━
     exclusion = build_furniture_exclusion_mask(ade_argmax_id)
     out = apply_exclusion_to_strip_masks(
         out, exclusion,
-        target_classes=("casing", "baseboard", "crown", "ceiling"),
+        target_classes=("casing", "baseboard", "crown", "ceiling", "window"),
     )
 
-    # [2] Dynamic close ceiling
+    # ━━ DYNAMIC CEILING CLOSE + CC NOISE FILTER ━━━━━━━━━━━━━━━━━━━━━
     if "ceiling" in out:
         out["ceiling"] = dynamic_close_ceiling(
             image_bgr, out["ceiling"], width_pct=ceiling_close_pct,
         )
+        # Re-apply ROI cap sau morph (close có thể đẩy mask xuống dưới cap_y)
+        out["ceiling"] = enforce_ceiling_roi(
+            out["ceiling"], image_bgr, max_height_pct=ceiling_max_height_pct,
+        )
 
-    # [3] Distance-transform constrain casing/baseboard
+    # ━━ DISTANCE-TRANSFORM STRIP CONSTRAINT ━━━━━━━━━━━━━━━━━━━━━━━━━
     if "casing" in out and "opening" in out:
         out["casing"] = constrain_strip_to_opening(
             out["casing"], out["opening"], image_bgr,
             max_pct=casing_max_dist_pct,
         )
-    # Baseboard reference = floor (must be near floor)
     if "baseboard" in out and "floor" in out:
         out["baseboard"] = constrain_strip_to_opening(
             out["baseboard"], out["floor"], image_bgr,

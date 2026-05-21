@@ -14,6 +14,9 @@ from .refine import refine_alpha_masks
 from .exporters import export_all_masks, ExportResult
 from .evaluator import evaluate_masks, EvalReport, MaskScore
 from .pipeline import extract_masks, MaskExtractionResult
+from .perfect_window import (
+    extract_perfect_window, extract_perfect_window_from_path, PerfectWindowResult,
+)
 from .preprocess import preprocess_for_vlm_sam, apply_clahe, undistort_image
 from .overlap_resolver import (
     resolve_all_overlaps,
