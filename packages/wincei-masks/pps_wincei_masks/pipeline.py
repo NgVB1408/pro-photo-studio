@@ -246,18 +246,14 @@ def extract_masks(
     t4 = time.perf_counter()
     result.timings["molding_heuristic"] = t4 - t3
 
-    # Phase 4.5: Overlap leakage resolver v0.3.1 — Sobel + 3 structural fixes
+    # Phase 4.5: Overlap leakage resolver v0.3.2 — Sobel + 4 nguyên tắc
     if resolve_overlap:
         try:
-            # Pass lamp/light masks → ceiling reclaim biết chandelier ở đâu
-            lamp_bin_resolver = (lamp_soft >= 0.3).astype(np.uint8) * 255
-            light_bin_resolver = (light_soft >= 0.3).astype(np.uint8) * 255
             alpha_masks = resolve_all_overlaps(
                 img, alpha_masks,
-                lamp_mask=lamp_bin_resolver,
-                light_mask=light_bin_resolver,
+                ade_argmax_id=sem.argmax_id,  # ← furniture exclusion mask
             )
-            log.info("Overlap leakage resolved + 3 structural fixes (casing/ceiling/baseboard)")
+            log.info("v0.3.2 resolver: Sobel + exclusion + dynamic close + distance constrain")
         except Exception as exc:
             log.warning("Overlap resolver fail (non-fatal): %s", exc)
 

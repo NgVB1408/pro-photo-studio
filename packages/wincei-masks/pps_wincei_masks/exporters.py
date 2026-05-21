@@ -34,9 +34,9 @@ OVERLAY_COLORS = {
     "window":     ( 80, 200, 255),    # cyan
     "door":       (100, 100, 255),    # đỏ nhạt
     "opening":    (200, 255,   0),    # xanh chartreuse (window∪door∪sky)
-    "crown":      (  0, 255, 255),    # vàng
+    "crown":      (180,  80, 200),    # tím nhạt (đổi từ vàng — vàng dễ nhầm heuristic line)
     "baseboard":  (  0, 200, 100),    # xanh lá
-    "casing":     (255, 100, 255),    # tím
+    "casing":     (255, 100, 255),    # tím sáng
     "light":      ( 50, 255, 255),    # vàng đèn
 }
 
