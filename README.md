@@ -14,6 +14,215 @@
 
 ---
 
+## 🚀 QUICK START — Mở lên là chạy trong 5 phút
+
+### 📥 Bước 1 — Tải bản portable
+
+**Windows**: [wincei_PORTABLE_v0.3.0_20260521.zip](https://github.com/NgVB1408/pro-photo-studio/releases/download/v0.3.0/wincei_PORTABLE_v0.3.0_20260521.zip) (66 MB)
+
+```powershell
+# Giải nén zip vào thư mục bất kỳ
+# Double-click launchers/run_api.bat
+# → Mở browser http://localhost:8000/
+```
+
+**Linux / Mac**:
+```bash
+curl -L -O https://github.com/NgVB1408/pro-photo-studio/releases/download/v0.3.0/wincei_PORTABLE_v0.3.0_20260521.zip
+unzip wincei_PORTABLE_v0.3.0_20260521.zip
+bash launchers/run_api.sh
+# → http://localhost:8000/
+```
+
+### 📥 Bước 2 — Hoặc clone source rồi tự build
+
+```bash
+git clone https://github.com/NgVB1408/pro-photo-studio.git
+cd pro-photo-studio
+pip install uv
+uv sync --all-packages
+pps-wincei-api  # → http://localhost:8000/docs
+```
+
+### 🌐 Bước 3 — Mở Web UI drag-drop
+
+→ Browser: **<http://localhost:8000/>**
+→ Kéo thả ảnh BĐS vào dropzone → chọn pipeline → click Run → xem output tại chỗ.
+
+---
+
+## 🛠️ HƯỚNG DẪN CHI TIẾT — 4 cách dùng
+
+### A. CLI (cho terminal user)
+
+```bash
+# 1. Smart Segmentation 9 masks + AI verdict (~6 phút CPU 6K)
+pps-wincei-masks foto.jpg --outputs ./masks
+
+# 2. HDR bracket fusion (Sony AEB ±3EV → 1 ảnh outdoor recovered)
+pps-wincei-hdr --inputs ./bracket_folder --outputs ./fused
+
+# 3. JSON regions (bbox normalized [0..1000] cho dev integrate)
+pps-wincei-regions foto.jpg --pretty
+
+# 4. Perfect Window — geometric BBOX crop → PNG RGBA transparent
+pps-wincei-window foto.jpg --out window.png --zoom
+
+# 5. SAM Panoptic — color-coded all instances (official notebook style)
+pps-sam-demo foto.jpg --points-per-side 32 --alpha 0.35 --out colored.jpg
+
+# 6. Window+Ceiling tone fix (cửa sổ blown + trần ám màu)
+pps-wincei foto.jpg --out fixed.jpg
+
+# Batch folder mode + HTML viewer
+pps-wincei-folder --inputs ./photos --outputs ./output
+```
+
+### B. REST API (cho web/mobile/team dev)
+
+```bash
+# Khởi động server
+pps-wincei-api  # → http://localhost:8000/docs
+
+# Test mock mode (response instant, không cần CPU)
+curl -X POST http://localhost:8000/api/v1/segment-masks \
+     -F "files=@foto.jpg" -F "mock=true"
+
+# Real job — async với polling
+JOB=$(curl -s -X POST http://localhost:8000/api/v1/segment-masks \
+     -F "files=@foto.jpg" | jq -r .job_id)
+curl http://localhost:8000/api/v1/jobs/$JOB
+curl -O http://localhost:8000/api/v1/jobs/$JOB/download
+
+# SAM panoptic (notebook official)
+curl -X POST http://localhost:8000/api/v1/sam-demo \
+     -F "file=@foto.jpg" --output sam_colored.jpg
+
+# Perfect window crop
+curl -X POST http://localhost:8000/api/v1/perfect-window \
+     -F "file=@foto.jpg" --output window.png
+
+# Detect regions JSON
+curl -X POST http://localhost:8000/api/v1/detect-regions \
+     -F "file=@foto.jpg"
+```
+
+**12 endpoints sẵn có** — full Swagger tại `/docs`:
+
+| Method | Path | Mô tả |
+|---|---|---|
+| `GET` | `/` | Web UI drag-drop |
+| `GET` | `/docs` | Swagger UI |
+| `GET` | `/redoc` | ReDoc API reference |
+| `GET` | `/api/v1/health` | Health + GPU + versions |
+| `POST` | `/api/v1/segment-masks` | 9 masks + AI eval verdict |
+| `POST` | `/api/v1/hdr-fuse` | Mertens HDR bracket fusion |
+| `POST` | `/api/v1/window-ceiling` | Fix cửa sổ + trần |
+| `POST` | `/api/v1/detect-regions` | JSON bbox [0..1000] |
+| `POST` | `/api/v1/full-recovery-ceiling` | VLM+SAM2 ceiling RGBA |
+| `POST` | `/api/v1/perfect-window` | Geometric bbox crop |
+| `POST` | `/api/v1/sam-demo` | SAM panoptic visualization |
+| `GET` | `/api/v1/jobs/{id}/download` | Download job zip output |
+
+### C. Python API (cho team data science)
+
+```python
+# Smart segmentation
+from pps_wincei_masks import extract_masks
+result = extract_masks("foto.jpg", "./outputs", self_evaluate=True)
+print(result.evaluation.verdict, result.evaluation.overall_score)
+for name, mask in result.masks.items():
+    print(name, (mask > 128).mean() * 100)
+
+# HDR bracket fusion
+from pps_wincei_hdr import detect_brackets, fuse_mertens
+groups, _ = detect_brackets(["DSC01526.jpg", "DSC01527.jpg", "DSC01528.jpg"])
+import cv2
+images = [cv2.imread(s.path) for s in groups[0].shots]
+fused = fuse_mertens(images, exposure_weight=1.0)
+cv2.imwrite("fused.jpg", fused)
+
+# SAM panoptic
+from pps_wincei_masks.sam_demo import sam_demo_pipeline
+import cv2
+img = cv2.imread("foto.jpg")
+result = sam_demo_pipeline(img, points_per_side=32)
+cv2.imwrite("sam_colored.jpg", result.overlay_bgr)
+
+# Regions JSON
+from pps_wincei_masks import analyze_image_to_json
+import cv2, json
+img = cv2.imread("foto.jpg")
+regions = analyze_image_to_json(img)
+print(json.dumps(regions, indent=2, ensure_ascii=False))
+```
+
+### D. Docker (production deploy)
+
+```bash
+cd src/
+docker compose up -d
+# → http://localhost:8000/
+```
+
+---
+
+## 🔧 SETUP NÂNG CAO — Full Pro Stack với VLM + SAM 2
+
+Cho ảnh khó (ngược sáng, trần giật cấp, ô cửa nhỏ <3%), kích hoạt full stack:
+
+```bash
+# One-shot installer — tự cài Ollama + bds-brain model + SAM 2 + uv sync
+bash scripts/setup_vlm_sam.sh
+
+# Hoặc thủ công:
+# 1. Ollama (https://ollama.com/download)
+ollama pull qwen2.5vl:7b
+ollama create bds-brain -f packages/wincei-masks/Modelfile.bds-brain
+
+# 2. SAM 2 (Meta)
+pip install "git+https://github.com/facebookresearch/sam2.git"
+curl -L -o ~/.cache/sam2/sam2_hiera_tiny.pt \
+     https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_tiny.pt
+
+# 3. SAM 1.0 (cho sam-demo panoptic)
+bash scripts/download_sam.sh vit_b   # 375 MB
+
+# 4. Use VLM-SAM2 engine
+pps-wincei-masks foto.jpg --engine vlm-sam2 --vlm-model bds-brain
+```
+
+---
+
+## 📚 TÀI LIỆU CHI TIẾT
+
+| File | Mô tả |
+|---|---|
+| [`packages/wincei-masks/DELIVERY.md`](packages/wincei-masks/DELIVERY.md) | Tài liệu bàn giao tổng quan (VN) |
+| [`packages/wincei-masks/USAGE_CHECKLIST.md`](packages/wincei-masks/USAGE_CHECKLIST.md) | Checklist sử dụng hàng ngày |
+| [`packages/wincei-masks/UPGRADE_CHECKLIST.md`](packages/wincei-masks/UPGRADE_CHECKLIST.md) | Checklist nâng cấp |
+| [`packages/wincei-masks/SETUP_VLM_SAM.md`](packages/wincei-masks/SETUP_VLM_SAM.md) | Cài Ollama + SAM 2 chi tiết |
+| [`packages/wincei-masks/README.md`](packages/wincei-masks/README.md) | API smart segmentation |
+| [`packages/wincei-hdr/WORKFLOW.md`](packages/wincei-hdr/WORKFLOW.md) | Pipeline HDR end-to-end |
+| [`packages/wincei-api/README.md`](packages/wincei-api/README.md) | REST API reference |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Kiến trúc multi-agent |
+| [`RUNBOOK.md`](RUNBOOK.md) | Ops runbook |
+
+---
+
+## 🐛 TROUBLESHOOTING
+
+| Triệu chứng | Khắc phục |
+|---|---|
+| Port 8000 đã chiếm | `set WINCEI_PORT=8088` rồi chạy lại |
+| `Ollama not running` | `ollama serve` background |
+| Job timeout | Giảm `--matting-max-side 1200` hoặc dùng GPU |
+| GPU CUDA error sm_50 | GTX 750 Ti EOL — chỉ chạy CPU được trên hardware này |
+| Window mask 0% | Là glass door — dùng `opening` mask thay |
+| Verdict luôn fail | `--precision --retry-on-fail` hoặc `--engine vlm-sam2` |
+
+---
+
 ## 📸 Showcase — 6 ảnh BĐS thật từ khách hàng (Sony A7M4 6K)
 
 > Test trên 6 phòng khác nhau — phòng khách / bếp / hành lang / phòng tắm.
