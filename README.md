@@ -50,6 +50,17 @@
 > `/api/v1/full-recovery-ceiling` endpoint → PNG RGBA với mọi vùng ngoài ceiling
 > trong suốt hoàn toàn (alpha=0). Sẵn sàng paste vào Photoshop làm layer.
 
+### 🎨 SAM Automatic Mask Generator — Panoptic Visualization
+
+> Theo notebook chính thức [facebookresearch/segment-anything](https://github.com/facebookresearch/segment-anything/blob/main/notebooks/automatic_mask_generator_example.ipynb).
+> Mỗi instance riêng được tô một màu — chứng minh AI đang dùng SAM thật.
+
+![SAM panoptic DSC01527](docs/showcase/real_estate/DSC01527_sam_panoptic.jpg)
+
+> **39 masks** auto-generated bằng SAM ViT-B (grid 32×32 prompts).
+> Endpoint: `POST /api/v1/sam-demo` · CLI: `pps-sam-demo foto.jpg`
+> Sort theo area DESC + random color + alpha 0.35 (đúng visualization style notebook official).
+
 ### Scorecard tổng — 6 ảnh (v0.3.2 — toàn bộ TĂNG ĐIỂM so với v0.3.1)
 
 | Photo | Overall | Wall | Floor | Ceiling | Opening | Casing |
