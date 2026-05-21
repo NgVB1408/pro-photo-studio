@@ -29,6 +29,8 @@ echo "📝 Copy documentation..."
 cp packages/wincei-masks/DELIVERY.md "$PKG_DIR/docs/"
 cp packages/wincei-masks/README.md   "$PKG_DIR/docs/MASKS_README.md"
 cp packages/wincei-masks/SETUP_VLM_SAM.md "$PKG_DIR/docs/SETUP_VLM_SAM.md"
+cp packages/wincei-masks/USAGE_CHECKLIST.md "$PKG_DIR/docs/USAGE_CHECKLIST.md" 2>/dev/null || true
+cp packages/wincei-masks/UPGRADE_CHECKLIST.md "$PKG_DIR/docs/UPGRADE_CHECKLIST.md" 2>/dev/null || true
 cp packages/wincei-masks/Modelfile.bds-brain "$PKG_DIR/docs/" 2>/dev/null || true
 cp packages/wincei-hdr/README.md     "$PKG_DIR/docs/HDR_README.md"
 cp packages/wincei-hdr/WORKFLOW.md   "$PKG_DIR/docs/WORKFLOW.md"
