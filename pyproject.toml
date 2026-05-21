@@ -31,6 +31,10 @@ members = [
     "packages/agents",
     "packages/data",
     "packages/embed",
+    "packages/wincei",
+    "packages/wincei-hdr",
+    "packages/wincei-masks",
+    "packages/wincei-api",
 ]
 
 [tool.uv.sources]
@@ -41,6 +45,9 @@ pps-desktop = { workspace = true }
 pps-agents = { workspace = true }
 pps-data = { workspace = true }
 pps-embed = { workspace = true }
+pps-wincei = { workspace = true }
+pps-wincei-hdr = { workspace = true }
+pps-wincei-masks = { workspace = true }
 
 [dependency-groups]
 dev = [

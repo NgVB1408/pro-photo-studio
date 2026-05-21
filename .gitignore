@@ -111,3 +111,9 @@ logs/
 # Test images downloaded for verification (not source)
 test_input/
 .venv-directml/
+
+# Delivery build artifacts (regenerable từ scripts/build_*.sh)
+delivery/
+
+# Wincei runtime storage (uploads + jobs + outputs)
+wincei_storage/

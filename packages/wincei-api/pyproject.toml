@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-wincei-api"
+version = "0.1.0"
+description = "FastAPI service wrap wincei + wincei-hdr + wincei-masks — REST endpoints cho khách integrate."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+keywords = ["fastapi", "real-estate", "photo", "wincei", "rest-api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.6",
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "Pillow>=10.0",
+    "pps-wincei>=0.3",
+    "pps-wincei-hdr>=0.1",
+    "pps-wincei-masks>=0.1",
+]
+
+[project.scripts]
+pps-wincei-api = "pps_wincei_api.server:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_wincei_api"]

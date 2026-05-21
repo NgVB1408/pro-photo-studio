@@ -14,15 +14,15 @@
     "consistency_vs_input": 0.102
   },
   "stage_durations_s": {
-    "geometry": 0.006,
-    "lightblend": 0.145,
-    "microcontrast": 0.756,
-    "cleanup": 0.006,
-    "output": 0.011
+    "geometry": 0.005,
+    "lightblend": 0.168,
+    "microcontrast": 0.91,
+    "cleanup": 0.023,
+    "output": 0.022
   },
-  "analyze_duration_s": 0.252,
-  "apply_duration_s": 0.926,
-  "total_duration_s": 1.387,
+  "analyze_duration_s": 0.647,
+  "apply_duration_s": 1.13,
+  "total_duration_s": 2.011,
   "skipped_stages": [],
   "findings": [
     "Sharpness không đều — vùng tiền cảnh nhoè hoặc hậu cảnh quá gắt.",

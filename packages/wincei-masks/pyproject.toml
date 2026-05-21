@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-wincei-masks"
+version = "0.1.0"
+description = "Smart room segmentation + phào chỉ detection → PNG/TIFF/PSD masks cho Photoshop workflow."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+keywords = ["real-estate", "segmentation", "photoshop", "masks", "molding", "interior", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "Pillow>=10.0",
+    "scikit-image>=0.22",
+    "scipy>=1.11",
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "transformers>=4.44",
+    "tifffile>=2024.5",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+psd       = ["pytoshop>=1.2"]
+matting   = ["pymatting>=1.1"]
+# pydensecrf không có wheel cho Python ≥3.11 trên PyPI.
+# Cài thủ công nếu muốn CRF: pip install git+https://github.com/lucasb-eyer/pydensecrf
+precision = ["pymatting>=1.1"]
+
+[project.scripts]
+pps-wincei-masks = "pps_wincei_masks.cli:main"
+pps-wincei-regions = "pps_wincei_masks.cli_regions:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_wincei_masks"]

@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pps-wincei"
+version = "0.3.0"
+description = "Context-aware AI window + ceiling fixer — CLIP scene classify + SegFormer ADE20K + adaptive tuner + Bradford CAT + GPU"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "NgVB1408" }]
+keywords = ["real-estate", "photo", "window", "ceiling", "hdr", "ai", "segmentation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "Pillow>=10.0",
+    "transformers>=4.44",
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "onnxruntime>=1.17",
+    "tqdm>=4.66",
+    "safetensors>=0.4",
+    "huggingface_hub>=0.24",
+]
+
+[project.optional-dependencies]
+gpu = ["onnxruntime-gpu>=1.17"]
+fallback = ["rembg>=2.0"]
+
+[project.scripts]
+pps-wincei = "pps_wincei.cli:main"
+pps-wincei-folder = "pps_wincei.folder_cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pps_wincei"]
