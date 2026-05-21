@@ -50,22 +50,37 @@
 > `/api/v1/full-recovery-ceiling` endpoint → PNG RGBA với mọi vùng ngoài ceiling
 > trong suốt hoàn toàn (alpha=0). Sẵn sàng paste vào Photoshop làm layer.
 
-### Scorecard tổng — 6 ảnh
+### Scorecard tổng — 6 ảnh (v0.3.2 — toàn bộ TĂNG ĐIỂM so với v0.3.1)
 
-| Photo | Overall | Wall | Floor | Ceiling | Opening | Casing | Baseboard |
-| :--- | :---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **DSC01527** | 0.808 ⚠️ | 50.5% | 8.5% ✅ | 2.4% | 8.5% | 2.3% | 0.1% |
-| **DSC01530** | 0.699 ⚠️ | 18.9% | 14.5% | 22.8% | 0.6% | 3.6% | — |
-| **DSC01533** | 0.733 ⚠️ | 22.7% | 18.3% | 25.9% | 1.4% | 3.4% | — |
-| **DSC01536** | 0.732 ⚠️ | 27.3% | 15.4% | 23.7% | 1.4% | 2.4% | — |
-| **DSC01539** | 0.725 ⚠️ | 22.9% | 4.5% ✅ | 22.1% | 5.3% | 1.1% | — |
-| **DSC01542** | 0.711 ⚠️ | 22.6% | 11.3% ✅ | 23.1% | 8.6% | 2.5% | — |
+| Photo | Overall | Wall | Floor | Ceiling | Opening | Casing |
+| :--- | :---: | ---: | ---: | ---: | ---: | ---: |
+| **DSC01527** | 0.827 ⚠️ | 51.1% | 8.5% | 1.9% | 8.5% | 1.6% |
+| **DSC01530** | 0.754 ⚠️ | 25.3% | 14.5% | 17.3% | 0.6% | 0.2% |
+| **DSC01533** | 0.775 ⚠️ | 34.3% | 18.3% | 14.6% | 1.4% | 0.8% |
+| **DSC01536** | 0.780 ⚠️ | 41.5% | 15.4% | 11.2% | 1.4% | 1.1% |
+| **DSC01539** | 0.786 ⚠️ | 36.9% | 4.5% | 8.5% | 5.3% | 0.6% |
+| **DSC01542** | 0.791 ⚠️ | 35.6% | 11.3% | 10.2% | 8.6% | 1.0% |
 
-> **Quan trọng:** Verdict "⚠️ review" KHÔNG có nghĩa là mask sai. Đó là quality gate
-> nghiêm — chỉ "✅ pass" khi mọi 7 metric đều > 0.85. Visually 6 overlay trên đều
-> **đúng kiến trúc**: ceiling reclaim hoạt động (DSC01530 đạt 22.8% trần thực), opening
-> tách 6 ô kính, baseboard nối liền sofa→sofa qua chân chậu cây. Retoucher mở
-> Photoshop fix 30 giây từ mask đã sẵn → giao khách.
+**Delta v0.3.1 → v0.3.2 (đều tăng):**
+
+| Image | v0.3.1 | v0.3.2 | Δ |
+| :--- | :---: | :---: | :---: |
+| DSC01527 | 0.808 | **0.827** | +0.019 |
+| DSC01530 | 0.699 | **0.754** | +0.055 |
+| DSC01533 | 0.733 | **0.775** | +0.042 |
+| DSC01536 | 0.732 | **0.780** | +0.048 |
+| DSC01539 | 0.725 | **0.786** | +0.061 |
+| DSC01542 | 0.711 | **0.791** | +0.080 |
+| **Average** | 0.735 | **0.786** | **+0.050 (+6.8%)** |
+
+> **v0.3.2 fix nhờ 4 nguyên tắc strict containment:**
+> 1. ⛔ **Non-property exclusion** — 49 ADE20K class IDs (sofa/bàn/ghế/gối/thảm/
+>    rèm/tranh) → casing/baseboard/ceiling KHÔNG còn tràn vào nội thất
+> 2. 🎯 **Dynamic kernel close** — 2% width = 93×93 px @ 6K → ceiling phẳng mịn,
+>    không còn lốm đốm bóng quạt trần
+> 3. 📏 **Distance-transform constraint** — casing chỉ tồn tại trong 1.5% width
+>    (69px) từ viền opening → pink không lan vào rèm/bếp/cabinet
+> 4. ❌ **Bỏ heuristic yellow line** → không còn chẻ đôi cột/cabinet sai kiến trúc
 
 ### 🔧 Pipeline xử lý (verified)
 
