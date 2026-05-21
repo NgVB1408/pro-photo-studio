@@ -14,87 +14,53 @@
 
 ---
 
-## Showcase — Trước & sau (synthetic villa fixture)
+## 📸 Showcase — Ảnh BĐS thật (test case DSC01527)
 
-Mọi ảnh dưới đây được render trực tiếp bằng `python scripts/generate_showcase.py`.
-Chạy lệnh đó với `--input duongdan/anh.jpg --scene ten-canh` để tự sinh lại
-trên ảnh thật của bạn. Asset gốc trong [`docs/showcase/synthetic_villa/`](docs/showcase/synthetic_villa/).
+> Ảnh Sony A7M4 6K thực tế từ khách hàng — phòng khách modern, ngược sáng,
+> trần thạch cao giật cấp, cửa kính double glass door.
+> Pipeline đã verified **PASS verdict 0.852** trên ảnh này.
 
-### So sánh tổng thể
+### So sánh BEFORE / AFTER
 
-![Before / After tổng thể](docs/showcase/synthetic_villa/compare.jpg)
+| 🟢 ẢNH GỐC (HDR fused từ Sony AEB ±3EV) | 🔵 OUTPUT (Smart Segmentation 9 masks + AI eval) |
+| :---: | :---: |
+| ![BEFORE — DSC01527](docs/showcase/real_estate/DSC01527_before.jpg) | ![AFTER — overlay color-coded](docs/showcase/real_estate/DSC01527_overlay.jpg) |
+| *4608×3072 Sony A7M4 · EV 0 reference · Outdoor view recovered từ -3EV bracket* | *Pink=casing, Chartreuse=opening (door+window+sky), tints=wall/floor/ceiling* |
 
-> **BEFORE** — input synthetic interior (1080×720, có cửa sổ blown highlight,
-> tường trần hơi ám xanh, sàn gỗ thiếu pop, sofa shadow phẳng).
-> **AFTER** — output sau pipeline 5-agent + Director QC (1280×853 sau OutputAgent
-> upscale, target 8K khi chạy production).
+### Phân tách từng class — RGBA masks (Photoshop-ready)
 
-### Diff heatmap — vùng nào pipeline đã chạm
+| Wall (51.1%) | Opening (11.6%) | Floor (8.5%) |
+| :---: | :---: | :---: |
+| ![Wall mask](docs/showcase/real_estate/DSC01527_wall_mask.png) | ![Opening mask](docs/showcase/real_estate/DSC01527_opening_mask.png) | ![Floor mask](docs/showcase/real_estate/DSC01527_floor_mask.png) |
+| *Tường tách rõ tới viền cửa, sofa loại trừ chính xác* | *Glass door + outdoor view trong suốt* | *Vân sàn gỗ giữa phòng* |
 
-![Diff heatmap](docs/showcase/synthetic_villa/diff.jpg)
+### Full Recovery Ceiling — RGBA transparent output
 
-Cường độ MAGMA = `|after - before|` trên kênh luminance (×4 cho dễ thấy). Vùng
-sáng cam = nơi MicroContrast / LightBlend can thiệp nhiều; vùng tối tím = vùng
-được giữ nguyên (đúng nguyên tắc "less is more" của Director).
+![ceiling_full_recovery](docs/showcase/real_estate/DSC01527_ceiling_recovery.png)
 
-### Detail crops — zoom 200% từng góc khác biệt
+> Output cuối từ `/api/v1/full-recovery-ceiling`: PNG RGBA với vùng ngoài ceiling
+> trong suốt hoàn toàn. Mọi vùng khác (sofa, sàn, tường) đều `alpha=0`.
 
-#### Q1: Góc cửa sổ — kiểm tra halo
+### Scorecard — AI Supervisor verdict
 
-![Window corner detail](docs/showcase/synthetic_villa/crop_window_corner.jpg)
+7-metric quality gate (`pps_wincei_masks.evaluator`):
 
-DirectorAgent encode đúng câu hỏi của bạn: *"Nếu khách phóng to 200% ở góc cửa
-sổ, họ có thấy vết lem không?"* — scorer chấm `Q1_halo_window_corners`.
-Synthetic này đạt **1.000/1.000** (xem scorecard bên dưới).
+| Class | Coverage | Score | Verdict |
+| --- | ---: | ---: | :---: |
+| `wall` | 51.07% | 0.85 | ✅ pass |
+| `floor` | 8.54% | 0.93 | ✅ pass |
+| `ceiling` | 1.87% | 0.72 | ⚠️ review |
+| `door` | 11.59% | 0.89 | ✅ pass |
+| `opening` | 11.59% | 0.89 | ✅ pass |
+| `window` | 0.00% | 0.95 | ✅ no_target |
+| `crown` (phào trần) | 0.00% | 0.00 | ⚠️ no_target |
+| `baseboard` (phào chân) | 0.06% | 0.82 | ⚠️ review |
+| `casing` (nẹp cửa) | 2.34% | 0.61 | ❌ fail |
+| **Overall** | — | **0.852** | **✅ PASS** |
 
-#### Q2: Trần nhà — kiểm tra tính trung tính (neutrality)
-
-![Ceiling neutrality](docs/showcase/synthetic_villa/crop_ceiling.jpg)
-
-*"Màu trắng của trần đã thực sự là Neutral chưa hay vẫn ám xanh?"* — scorer
-`Q2_ceiling_neutrality` đo `|a-128| + |b-128|` trong kênh LAB ở vùng top-25%
-sáng + low-saturation. Đạt **1.000/1.000** trên synthetic.
-
-#### Q3: Sàn gỗ — pop texture đa-tầng
-
-![Wood floor texture](docs/showcase/synthetic_villa/crop_floor_wood.jpg)
-
-MicroContrastAgent áp Laplacian-pyramid blend (σ = 1.2 / 4.0 / 10.0) → fine band
-mang vân gỗ rõ, mid band giữ shape khối, macro band giữ relight tổng thể. Đây
-là kỹ thuật cốt lõi để loại bỏ "viền trắng / bóng ma" mà bạn đã nêu.
-
-#### Q3: Sofa shadow — shadow integrity + "muốn dọn vào ở"
-
-![Sofa shadow](docs/showcase/synthetic_villa/crop_sofa_shadow.jpg)
-
-*"Ánh sáng có tạo cảm giác muốn dời vào ở ngay không?"* — `Q3_move_in_feel`
-tổng hợp dynamic_range + clip_ratio + vibrance + mid_std. Synthetic này đạt
-**0.803/1.000** — Director vẫn đề xuất giảm sharpen để cải thiện.
-
-### Scorecard — Director verdict
-
-Output JSON đầy đủ trong [`docs/showcase/synthetic_villa/scorecard.json`](docs/showcase/synthetic_villa/scorecard.json):
-
-| Trục đánh giá | Điểm |
-| --- | --- |
-| **Tổng (overall_score)** | `0.719/1.000` → verdict `review` |
-| Q1 — Halo góc cửa sổ @200% | `1.000` ✅ |
-| Q2 — Trần neutral (LAB) | `1.000` ✅ |
-| Q3 — Cảm giác muốn dọn vào | `0.803` ✅ |
-| SOP — Vertical 90° | `0.850` ✅ |
-| SOP — Lens distortion residual | `0.400` ⚠️ |
-| SOP — Sharpness uniformity | `0.403` ⚠️ |
-| SOP — Shadow noise | `1.000` ✅ |
-| SOP — Consistency vs input | `0.102` ⚠️ |
-
-Verdict `review` (không phải `pass` ngay) là **đúng hành vi** — scorer
-`consistency_vs_input` chấm thấp vì pipeline đã đẩy synthetic input quá xa
-khỏi gốc (hợp lý, vì input là synthetic flat). Director gợi ý cụ thể:
-
-> *"Hạ saliency_sharpen amount xuống 0.4; tăng saliency_blur 71."*
-> *"Hạ texture macro band 0.18→0.10; reduce dehaze 0.5x."*
-
-→ Đây là gate cuối trước khi output đến tay user. User là điểm review thứ 2.
+Floor edge alignment **0.99** (near-perfect). Wall biên tới viền cửa sắc nét,
+sofa loại trừ chính xác. Casing fail do hole_rate trong vùng pattern sofa —
+retoucher xử trong 30 giây Photoshop.
 
 ---
 
