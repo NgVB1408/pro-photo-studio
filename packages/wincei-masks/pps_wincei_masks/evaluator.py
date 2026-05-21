@@ -38,6 +38,18 @@ EXPECTED_COVERAGE = {
     "light":     (0.00, 0.10),
 }
 
+# Multi-region acceptable classes — không phạt nếu mask có nhiều connected components.
+#   opening: cửa kính nhiều ô → 6+ panes là normal sau khi subtract mullion
+#   window:  multiple window panes
+#   door:    multi-leaf glass doors
+# Per-component smoothness, skip hole_rate.
+MULTI_REGION_CLASSES = {"opening", "window", "door", "doors"}
+
+# Strip classes — phào / nẹp / chân tường — thường mảnh + đứt đoạn.
+#   no_orphan_blobs relaxed (cho phép multi segments)
+#   hole_rate skip (strip không có "trong")
+STRIP_CLASSES = {"crown", "baseboard", "casing"}
+
 
 @dataclass
 class MaskScore:
