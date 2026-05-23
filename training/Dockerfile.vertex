@@ -1,0 +1,44 @@
+# Vertex AI custom training container for Qwen-Image-Edit LoRA fine-tune.
+# Base: Vertex AI prebuilt PyTorch 2.3 + CUDA 12.1 (Python 3.10).
+# Final image ~6 GB; pushes to us-central1-docker.pkg.dev/<project>/pps-training/qwen-edit.
+
+FROM us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-3.py310:latest
+
+ARG UV_VERSION=0.5.7
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh | sh \
+    && ln -s /root/.local/bin/uv /usr/local/bin/uv
+
+WORKDIR /opt/pps
+
+COPY pyproject.toml uv.lock ./
+COPY packages/core/pyproject.toml packages/core/
+COPY packages/data/pyproject.toml packages/data/
+
+RUN uv sync --frozen --no-install-project --package pps-data 2>&1 | tail -5
+
+RUN uv pip install --system \
+    "accelerate>=0.34" \
+    "peft>=0.13" \
+    "diffusers>=0.31" \
+    "transformers>=4.45" \
+    "bitsandbytes>=0.44" \
+    "wandb>=0.18" \
+    "pyyaml>=6.0" \
+    "lpips>=0.1.4" \
+    "opencv-python-headless>=4.10" \
+    "google-cloud-secret-manager>=2.20"
+
+COPY packages/core packages/core
+COPY packages/data packages/data
+COPY training training
+
+RUN uv sync --frozen 2>&1 | tail -3
+
+ENV PPS_TRAINING_ROOT=/opt/pps
+
+ENTRYPOINT ["python", "-u", "training/finetune_qwen_edit.py"]
+CMD ["--config", "training/configs/fivek_lora.yaml", "--dry-run"]

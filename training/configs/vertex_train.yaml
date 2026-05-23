@@ -1,0 +1,68 @@
+# Vertex AI CustomJob spec for Qwen-Image-Edit LoRA fine-tune on FiveK.
+#
+# Submit with:
+#   gcloud ai custom-jobs create \
+#     --region=us-central1 \
+#     --display-name=pps-qwen-edit-lora-$(date +%Y%m%d-%H%M) \
+#     --service-account=pps-training@exalted-splicer-497201-s8.iam.gserviceaccount.com \
+#     --config=training/configs/vertex_train.yaml
+#
+# DO NOT SUBMIT until:
+#   1. HF_TOKEN_WRITE secret version 1 exists with a real fresh token
+#      (gcloud secrets versions add HF_TOKEN_WRITE --data-file=- <<<"hf_xxx")
+#   2. HF_TOKEN_READ has a read-scope token version
+#   3. Container image built + pushed via training/scripts/build_push_image.sh
+#   4. Dataset staged to gs://pps-training-.../datasets/fivek/ (or HF streaming
+#      verified working from inside Vertex via training/scripts/stage_fivek_to_gcs.sh)
+#   5. training/finetune_qwen_edit.py real loop is implemented — currently a
+#      scaffold; see line 181 of that file. The scaffold will exit 0 without
+#      training, so submitting now wastes V100 time.
+
+workerPoolSpecs:
+  - machineSpec:
+      # V100 16GB. Only GPU available on this account without quota request.
+      # If A100/L4 quota gets approved later, swap to:
+      #   machineType: g2-standard-8
+      #   acceleratorType: NVIDIA_L4
+      # for ~3x cheaper per-hour and better bf16 throughput.
+      machineType: n1-standard-8
+      acceleratorType: NVIDIA_TESLA_V100
+      acceleratorCount: 1
+    replicaCount: 1
+    diskSpec:
+      bootDiskType: pd-ssd
+      bootDiskSizeGb: 200
+    containerSpec:
+      imageUri: us-central1-docker.pkg.dev/exalted-splicer-497201-s8/pps-training/qwen-edit:latest
+      command:
+        - python
+        - "-u"
+        - training/finetune_qwen_edit.py
+      args:
+        - --config
+        - training/configs/fivek_lora.yaml
+        - --output-repo
+        - "$(HF_OUTPUT_REPO)"
+      env:
+        - name: HF_OUTPUT_REPO
+          value: "OVERRIDE-AT-SUBMIT-TIME"
+        - name: PPS_HF_TOKEN_READ_SECRET
+          value: projects/exalted-splicer-497201-s8/secrets/HF_TOKEN_READ/versions/latest
+        - name: PPS_HF_TOKEN_WRITE_SECRET
+          value: projects/exalted-splicer-497201-s8/secrets/HF_TOKEN_WRITE/versions/latest
+        - name: PPS_FIVEK_GCS_MIRROR
+          value: gs://pps-training-exalted-splicer-497201-s8/datasets/fivek
+        - name: WANDB_DISABLED
+          value: "true"
+        - name: HF_HUB_ENABLE_HF_TRANSFER
+          value: "1"
+
+baseOutputDirectory:
+  outputUriPrefix: gs://pps-training-exalted-splicer-497201-s8/runs
+
+# Secret injection: Vertex CustomJob env does NOT support direct Secret Manager
+# secretRef. The container reads PPS_HF_TOKEN_*_SECRET env vars and fetches
+# token values at startup via google-cloud-secret-manager + the job's SA
+# (pps-training has roles/secretmanager.secretAccessor at project scope).
+# This is auditable (every read shows in Cloud Audit Logs) and avoids token
+# values appearing in job spec or process listings.
