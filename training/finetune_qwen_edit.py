@@ -341,8 +341,21 @@ def train(
 
         def __iter__(self):
             for row in self.src:
-                raw = row.get("raw") or row.get("input")
-                target = row.get(self.expert) or row.get("target") or row.get("expert_c")
+                # Schema varies by mirror:
+                #   logasja/mit-adobe-fivek: original / augmented
+                #   yuukicammy/MIT-Adobe-FiveK: raw / expert_<x>
+                #   synthetic smoke pairs: raw / target
+                raw = (
+                    row.get("raw")
+                    or row.get("input")
+                    or row.get("original")
+                )
+                target = (
+                    row.get(self.expert)
+                    or row.get("target")
+                    or row.get(f"expert_{self.expert}")
+                    or row.get("augmented")
+                )
                 if raw is None or target is None:
                     continue
                 yield {"raw": raw, "target": target}
