@@ -47,7 +47,10 @@ COPY packages/core packages/core
 COPY packages/data packages/data
 COPY training training
 
-RUN uv sync --frozen 2>&1 | tail -3
+# Install only the two workspace members we need (pps-core, pps-data).
+# `uv sync --frozen` without --package would walk the full workspace and
+# fail because we deliberately didn't COPY source for agents/ai/api/etc.
+RUN uv pip install --system -e packages/core -e packages/data 2>&1 | tail -5
 
 ENV PPS_TRAINING_ROOT=/opt/pps
 
