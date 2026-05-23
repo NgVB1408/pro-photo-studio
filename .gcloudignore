@@ -1,0 +1,48 @@
+# Cloud Build context excludes — keep upload small.
+# Dockerfile only COPYs: pyproject.toml uv.lock packages/core packages/data training
+# Everything else can be ignored.
+
+.git/
+.github/
+.pre-commit-config.yaml
+*.log
+runs/
+node_modules/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+.venv*/
+venv*/
+
+# Not needed for training build
+docs/
+deploy/
+examples/
+investor_showcase/
+scripts/
+README*.md
+ARCHITECTURE.md
+CONTRIBUTING.md
+RUNBOOK.md
+SECURITY.md
+LICENSE
+package.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.env.example
+.gitattributes
+.gitignore
+
+# Packages not used by Dockerfile (only core + data + training)
+packages/agents/
+packages/ai/
+packages/api/
+packages/desktop/
+packages/embed/
+packages/web/
+packages/wincei/
+packages/wincei-api/
+packages/wincei-hdr/
+packages/wincei-masks/

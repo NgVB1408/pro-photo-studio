@@ -42,10 +42,8 @@ workerPoolSpecs:
         - --config
         - training/configs/fivek_lora.yaml
         - --output-repo
-        - "$(HF_OUTPUT_REPO)"
+        - Nvb1408/pps-qwen-edit-v1
       env:
-        - name: HF_OUTPUT_REPO
-          value: "OVERRIDE-AT-SUBMIT-TIME"
         - name: PPS_HF_TOKEN_READ_SECRET
           value: projects/exalted-splicer-497201-s8/secrets/HF_TOKEN_READ/versions/latest
         - name: PPS_HF_TOKEN_WRITE_SECRET

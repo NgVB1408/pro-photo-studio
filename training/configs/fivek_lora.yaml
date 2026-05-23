@@ -8,7 +8,10 @@ dataset:
   max_rows: 4500  # held-out 500 for eval
 
 model:
-  base: lightx2v/Qwen-Image-Lightning
+  # SD1.5 because diffusers AutoPipelineForImage2Image + UNet LoRA wiring matches.
+  # Qwen-Image-Edit uses MMDiT, needs a different loop (target_modules + transformer
+  # block names differ). v2 will swap to Qwen-Edit once that loop is wired.
+  base: stable-diffusion-v1-5/stable-diffusion-v1-5
   task: image-to-image
 
 lora:

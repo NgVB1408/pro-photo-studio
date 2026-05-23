@@ -32,10 +32,8 @@ workerPoolSpecs:
         - --config
         - training/configs/fivek_lora.yaml
         - --output-repo
-        - "$(HF_OUTPUT_REPO)"
+        - Nvb1408/pps-qwen-edit-v1-test
       env:
-        - name: HF_OUTPUT_REPO
-          value: "OVERRIDE-AT-SUBMIT-TIME"
         - name: PPS_MAX_STEPS
           value: "100"
         - name: PPS_HF_TOKEN_READ_SECRET

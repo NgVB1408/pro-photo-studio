@@ -1,0 +1,36 @@
+# Cloud Build pipeline for Vertex training container.
+# Build via:
+#   gcloud builds submit --config=training/cloudbuild.yaml --substitutions=_SHA=$(git rev-parse --short HEAD) .
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - --file=training/Dockerfile.vertex
+      - --tag=us-central1-docker.pkg.dev/${PROJECT_ID}/pps-training/qwen-edit:${_SHA}
+      - --tag=us-central1-docker.pkg.dev/${PROJECT_ID}/pps-training/qwen-edit:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-sha
+    args:
+      - push
+      - us-central1-docker.pkg.dev/${PROJECT_ID}/pps-training/qwen-edit:${_SHA}
+    waitFor: [build]
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-latest
+    args:
+      - push
+      - us-central1-docker.pkg.dev/${PROJECT_ID}/pps-training/qwen-edit:latest
+    waitFor: [build]
+
+substitutions:
+  _SHA: dev
+
+options:
+  machineType: E2_HIGHCPU_8       # ~3x faster than default for image builds
+  logging: CLOUD_LOGGING_ONLY     # required when no buckets in GCS for build logs
+
+timeout: 1800s                    # 30 min cap
