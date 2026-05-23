@@ -117,3 +117,4 @@ delivery/
 
 # Wincei runtime storage (uploads + jobs + outputs)
 wincei_storage/
+runs/
