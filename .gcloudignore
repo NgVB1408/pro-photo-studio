@@ -35,14 +35,14 @@ pnpm-workspace.yaml
 .gitattributes
 .gitignore
 
-# Packages not used by Dockerfile (only core + data + training)
-packages/agents/
-packages/ai/
-packages/api/
-packages/desktop/
-packages/embed/
-packages/web/
-packages/wincei/
-packages/wincei-api/
-packages/wincei-hdr/
-packages/wincei-masks/
+# packages/* must stay — uv.lock + root pyproject.toml reference all workspace
+# members, so uv sync needs at least their pyproject.toml files present.
+# Total ~7 MB; not worth slicing.
+
+# Per-package noise
+packages/**/__pycache__/
+packages/**/*.pyc
+packages/**/dist/
+packages/**/build/
+packages/**/*.egg-info/
+packages/**/node_modules/

@@ -15,10 +15,21 @@ RUN curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh | sh \
 WORKDIR /opt/pps
 
 COPY pyproject.toml uv.lock ./
+# All workspace members' pyproject.toml — uv.lock is bound to the full workspace,
+# so missing members make `uv sync --frozen` fail even with --package filter.
 COPY packages/core/pyproject.toml packages/core/
 COPY packages/data/pyproject.toml packages/data/
+COPY packages/agents/pyproject.toml packages/agents/
+COPY packages/ai/pyproject.toml packages/ai/
+COPY packages/api/pyproject.toml packages/api/
+COPY packages/desktop/pyproject.toml packages/desktop/
+COPY packages/embed/pyproject.toml packages/embed/
+COPY packages/wincei/pyproject.toml packages/wincei/
+COPY packages/wincei-hdr/pyproject.toml packages/wincei-hdr/
+COPY packages/wincei-masks/pyproject.toml packages/wincei-masks/
+COPY packages/wincei-api/pyproject.toml packages/wincei-api/
 
-RUN uv sync --frozen --no-install-project --package pps-data 2>&1 | tail -5
+RUN uv sync --frozen --no-install-project --package pps-data 2>&1 | tail -10
 
 RUN uv pip install --system \
     "accelerate>=0.34" \
