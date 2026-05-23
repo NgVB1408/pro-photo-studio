@@ -1,0 +1,53 @@
+# Vertex AI CustomJob — SMOKE variant of vertex_train.yaml.
+#
+# Differences vs vertex_train.yaml:
+#   - max_steps overridden to 100 via PPS_MAX_STEPS env (saves ~3-4h of V100 time)
+#   - smaller disk (100 GB) — smoke doesn't write many checkpoints
+#   - output repo defaults to *-test
+#
+# Submit:
+#   HF_OUTPUT_REPO=Nvb1408/pps-qwen-edit-v1-test \
+#   gcloud ai custom-jobs create \
+#     --region=us-central1 \
+#     --display-name=pps-qwen-edit-smoke-$(date +%Y%m%d-%H%M) \
+#     --service-account=pps-training@exalted-splicer-497201-s8.iam.gserviceaccount.com \
+#     --config=training/configs/vertex_train_smoke.yaml
+
+workerPoolSpecs:
+  - machineSpec:
+      machineType: n1-standard-8
+      acceleratorType: NVIDIA_TESLA_V100
+      acceleratorCount: 1
+    replicaCount: 1
+    diskSpec:
+      bootDiskType: pd-ssd
+      bootDiskSizeGb: 100
+    containerSpec:
+      imageUri: us-central1-docker.pkg.dev/exalted-splicer-497201-s8/pps-training/qwen-edit:latest
+      command:
+        - python
+        - "-u"
+        - training/finetune_qwen_edit.py
+      args:
+        - --config
+        - training/configs/fivek_lora.yaml
+        - --output-repo
+        - "$(HF_OUTPUT_REPO)"
+      env:
+        - name: HF_OUTPUT_REPO
+          value: "OVERRIDE-AT-SUBMIT-TIME"
+        - name: PPS_MAX_STEPS
+          value: "100"
+        - name: PPS_HF_TOKEN_READ_SECRET
+          value: projects/exalted-splicer-497201-s8/secrets/HF_TOKEN_READ/versions/latest
+        - name: PPS_HF_TOKEN_WRITE_SECRET
+          value: projects/exalted-splicer-497201-s8/secrets/HF_TOKEN_WRITE/versions/latest
+        - name: PPS_FIVEK_GCS_MIRROR
+          value: gs://pps-training-exalted-splicer-497201-s8/datasets/fivek
+        - name: WANDB_DISABLED
+          value: "true"
+        - name: HF_HUB_ENABLE_HF_TRANSFER
+          value: "1"
+
+baseOutputDirectory:
+  outputUriPrefix: gs://pps-training-exalted-splicer-497201-s8/runs/smoke

@@ -225,6 +225,7 @@ def train(
     output_repo: str | None,
     smoke: bool,
     output_dir: Path,
+    max_steps_override: int | None = None,
 ) -> int:
     """Full LoRA fine-tune. Returns exit code (0 OK)."""
     t0 = time.perf_counter()
@@ -388,6 +389,9 @@ def train(
     max_steps = cfg.train.get("max_steps", 4000)
     if smoke:
         max_steps = 2
+    if max_steps_override is not None:
+        max_steps = max_steps_override
+        log.info("max_steps override active: %d", max_steps)
     save_every = cfg.train.get("save_every_steps", 500)
     log_every = cfg.logging_cfg.get("log_every_steps", 25)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -601,8 +605,20 @@ def main(argv: list[str] | None = None) -> int:
         "--offline-smoke", action="store_true",
         help="Pure-stub smoke (no HF call at all). Fastest, lowest fidelity.",
     )
+    parser.add_argument(
+        "--max-steps", type=int, default=None,
+        help="Override train.max_steps from config (useful for Vertex smoke runs).",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
+
+    # Env fallback: PPS_MAX_STEPS lets Vertex submitters override without
+    # editing the args block in vertex_train.yaml.
+    if args.max_steps is None and os.environ.get("PPS_MAX_STEPS"):
+        try:
+            args.max_steps = int(os.environ["PPS_MAX_STEPS"])
+        except ValueError:
+            pass
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -654,7 +670,13 @@ def main(argv: list[str] | None = None) -> int:
         return _smoke_offline_mock(cfg)
 
     # ---- Real train OR smoke (with HF download) ----
-    return train(cfg, output_repo=output_repo, smoke=args.smoke, output_dir=args.output_dir)
+    return train(
+        cfg,
+        output_repo=output_repo,
+        smoke=args.smoke,
+        output_dir=args.output_dir,
+        max_steps_override=args.max_steps,
+    )
 
 
 if __name__ == "__main__":
